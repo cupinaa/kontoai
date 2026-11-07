@@ -26,6 +26,34 @@ KontoAI also **double-checks Iris**. It always computes its own 3-digit suggesti
 
 Iris stays authoritative: the analytic account is chosen below the Iris account. For invoices that come without an Iris account (directly from SEF), the system's own suggestion is used.
 
+## Demo
+
+These are real runs with Gemini (`gemini-3.6-flash`) through the web page, on 2026-11-07. The invoice was [`06_iris_provera_dijetetika.xml`](data/samples/06_iris_provera_dijetetika.xml), the client was `K001` (*proizvodnja dijetetskih proizvoda*), and the analytic plan was the trial plan.
+
+**1. First upload** (empty history):
+
+![First upload](docs/screenshots/01_prvo_ubacivanje.png)
+
+- **Rows 1–3:** the system's own 3-digit account (from the keyword rules) matches Iris.
+  - Rows 1 and 2: the LLM chose the analytic account from the offered list, 5330 (office) and 5331 (warehouse).
+  - Row 3: the plan has only one analytic account below 513, so no LLM call was needed.
+- **Row 4:** no rule applies, so the LLM proposed 532 against Iris' 539. It is flagged *Ne poklapa se — proveri*.
+- **Row 5:** the rent rule says 533, Iris says 539, so it is also flagged. The LLM was not sure enough about the analytic account (0.50), so nothing is preselected.
+
+**2. After confirming 5331 in row 2 and uploading the same invoice again:**
+
+![Second upload](docs/screenshots/02_drugo_ubacivanje.png)
+
+- **Row 2** now comes from history (*Istorija 95%*), and no LLM call was made for it.
+- **Supplier-level history also spread to other lines**, which is a real weakness this demo exposed:
+  - all lines now get the 3-digit account 533 from *"same supplier"* history with a single confirmation;
+  - row 3 (electricity) therefore shows *Ne poklapa se* against Iris' correct 513;
+  - row 1 got analytic 5331 instead of 5330.
+- **The Iris check catches the 3-digit cases.** The mismatches go to review instead of being posted silently. The analytic level has no such check.
+- **Possible fix** (not implemented yet): require at least two consistent confirmations for a supplier-level match, and let keyword rules win over supplier-level history. See [Limitations](#limitations).
+
+The two uploads used 7 LLM requests. The whole demo session used 12, with a server-wide cap of 20, about 13k tokens and **≈ $0.03**.
+
 ## How it works
 
 ```mermaid
@@ -68,7 +96,12 @@ flowchart LR
 
 Every item goes through the stages below in order and stops at the first one that decides. This also happens when the item already carries the Iris account.
 
-The Iris account (`given_konto`) comes either through the JSON API or from the SEF XML line's `cbc:AccountingCost`, the EN 16931 *buyer accounting reference*, BT-133. If it has four or more digits, the first three are used. The system then compares its own result with it and sets `given_check`:
+The Iris account (`given_konto`) comes either through the JSON API or from the SEF XML line's `cbc:AccountingCost`, the EN 16931 *buyer accounting reference*, BT-133. If it has four or more digits, the first three are used.
+
+> [!NOTE]
+> **Reading the Iris account from `cbc:AccountingCost` is only a way for the demo invoice to carry it.** In practice Iris does not write its proposed account into the supplier's e-invoice XML. In a real setup, the Iris accounts would be imported from an Iris export and sent with each item as `given_konto` through the JSON API, or matched to the invoice lines by an importer.
+
+The system then compares its own result with it and sets `given_check`:
 
 | `given_check` | Shown as | Manual review |
 |---|---|---|
@@ -432,7 +465,7 @@ The response `status` is `confirmed` if the accountant accepted the suggestion a
 
 ## Tests
 
-`pytest` runs 170 tests covering:
+`pytest` runs 172 tests covering:
 - XML parsing, including XXE rejection;
 - rules, history and masking;
 - rejection of accounts outside the chart;
@@ -453,7 +486,8 @@ The response `status` is `confirmed` if the accountant accepted the suggestion a
   - the analytic account chosen below the Iris account;
   - `AccountingCost` parsing;
   - the agreement metric in the evaluation;
-- safe mode (`KONTOAI_DISABLE_LLM` wins over any key, including one from `.env`).
+- safe mode (`KONTOAI_DISABLE_LLM` wins over any key, including one from `.env`);
+- the server-wide call cap (`KONTOAI_MAX_LLM_CALLS`), which stops sending at the limit and reports usage in `/health`.
 
 Gemini is mocked everywhere. The tests need neither internet access nor an API key, and a fixture fails any test that tries to create a real client.
 
@@ -463,6 +497,7 @@ GitHub Actions runs two jobs on every push. The first runs the test suite. The s
 
 - **The chart of accounts must be verified.** It is a partial list of 3-digit accounts relevant to incoming invoices (classes 0, 1 and 5), taken from Sl. glasnik RS 89/2020. Intangible assets (e.g. software licences) are not included.
 - **The analytic plan is a trial version.** It has one client, and it was built from the accountant's answers in the review files. It will be replaced by the Iris export. There is no accuracy measurement for the analytic step yet, and there cannot be a fair one until a plan and postings that were not used to build it are available.
+- **Supplier-level history is too eager.** One confirmation of one item from a supplier currently becomes a suggestion (confidence 0.80) for *all* items of that supplier. That suggestion even ranks above keyword rules, at both the 3-digit and the analytic level. The [demo](#demo) showed the problem with a landlord who also re-invoices electricity. The Iris check flags the 3-digit cases, but the analytic level has no such check. A fix would require at least two consistent confirmations and would let rules beat supplier-level history.
 - **Single option = no question asked.** If the plan has only one analytic account below a 3-digit account, it is preselected without an LLM call. With an incomplete plan, that may hide the fact that a better analytic account is missing.
 - **VAT is not handled.** The system suggests the cost/asset account for the net amount. Input VAT (*prethodni porez*, group 27), the supplier account (435) and the full posting entry are out of scope.
 - **Accounting policy matters.** Whether a laptop is a fixed asset (023) or small inventory, and whether goods are booked at wholesale or retail, depends on the client's policy. The system cannot know this until the accountant confirms a few decisions.
