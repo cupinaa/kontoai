@@ -48,6 +48,20 @@ def create_app(settings: Settings | None = None, llm: LLMProvider | None = None,
             "accounts": len(classifier.chart),
             "chart_verified": classifier.chart.verified,
             "review_threshold": classifier.review_threshold,
+            "analytic_plan_status": classifier.analytic_plan.status,
+        }
+
+    @app.get("/analytic-plan/{client_id}")
+    def analytic_plan(client_id: str) -> dict:
+        """The client's analytic accounts (empty list if the client has no plan)."""
+        plan = classifier.analytic_plan
+        return {
+            "client_id": client_id,
+            "status": plan.status if plan.has_client(client_id) else None,
+            "accounts": [
+                {"konto": a.konto, "naziv": a.naziv, "sintetika": a.sintetika, "probni": a.probni}
+                for a in plan.accounts(client_id)
+            ],
         }
 
     @app.get("/accounts", response_model=list[Account])
@@ -98,6 +112,14 @@ def create_app(settings: Settings | None = None, llm: LLMProvider | None = None,
     def confirm(request: ConfirmRequest) -> ConfirmResponse:
         if request.konto not in classifier.chart:
             raise HTTPException(status_code=422, detail=f"Konto {request.konto} nije u kontnom okviru.")
+        analytic = None
+        if request.analytic_konto is not None:
+            analytic = classifier.analytic_plan.get(request.client_id, request.analytic_konto)
+            if analytic is None or analytic.sintetika != request.konto:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Analitički konto {request.analytic_konto} nije u planu klijenta ispod konta {request.konto}.",
+                )
         record = classifier.history.add(
             client_id=request.client_id,
             item_name=request.item_name,
@@ -107,8 +129,13 @@ def create_app(settings: Settings | None = None, llm: LLMProvider | None = None,
             supplier_pib=request.supplier_pib,
             suggested_konto=request.suggested_konto,
             suggested_source=request.suggested_source,
+            analytic_konto=analytic.konto if analytic else None,
+            analytic_name=analytic.naziv if analytic else None,
+            suggested_analytic=request.suggested_analytic,
+            suggested_analytic_source=request.suggested_analytic_source,
         )
-        return ConfirmResponse(status="corrected" if record.corrected else "confirmed", record=record)
+        corrected = record.corrected or record.analytic_corrected
+        return ConfirmResponse(status="corrected" if corrected else "confirmed", record=record)
 
     @app.get("/history/{client_id}", response_model=list[HistoryRecord])
     def history(client_id: str) -> list[HistoryRecord]:

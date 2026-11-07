@@ -32,12 +32,16 @@ sys.path.insert(0, str(ROOT))
 from app.classifier import ItemContext  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.llm.base import (  # noqa: E402
+    ANALYTIC_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
+    AnalyticChoice,
+    AnalyticRequest,
     CallBudget,
     LLMError,
     LLMProvider,
     LLMRequest,
     LLMSuggestion,
+    build_analytic_prompt,
     build_user_prompt,
 )
 from app.llm.gemini import GeminiProvider  # noqa: E402
@@ -110,15 +114,21 @@ class ThrottledProvider(LLMProvider):
         self._last = 0.0
         self.waited = 0.0
 
-    def suggest(self, request: LLMRequest) -> LLMSuggestion:
+    def _throttled(self, call):
         wait = self._last + self.interval - time.monotonic()
         if wait > 0:
             time.sleep(wait)
             self.waited += wait
         try:
-            return self.inner.suggest(request)
+            return call()
         finally:
             self._last = time.monotonic()
+
+    def suggest(self, request: LLMRequest) -> LLMSuggestion:
+        return self._throttled(lambda: self.inner.suggest(request))
+
+    def choose_analytic(self, request: AnalyticRequest) -> AnalyticChoice:
+        return self._throttled(lambda: self.inner.choose_analytic(request))
 
 
 class CachedProvider(LLMProvider):
@@ -130,19 +140,26 @@ class CachedProvider(LLMProvider):
         self.dir.mkdir(parents=True, exist_ok=True)
         self.last_hit = False
 
-    def _path(self, request: LLMRequest) -> Path:
-        digest = hashlib.sha256(request.model_dump_json().encode("utf-8")).hexdigest()[:24]
+    def _path(self, request, prefix: str = "") -> Path:
+        # The synthetic-account key has no prefix, so answers cached by earlier runs stay valid.
+        digest = hashlib.sha256((prefix + request.model_dump_json()).encode("utf-8")).hexdigest()[:24]
         return self.dir / f"{digest}.json"
 
-    def suggest(self, request: LLMRequest) -> LLMSuggestion:
-        path = self._path(request)
+    def _cached(self, path: Path, model_cls, call):
         if path.exists():
             self.last_hit = True
-            return LLMSuggestion.model_validate_json(path.read_text(encoding="utf-8"))
+            return model_cls.model_validate_json(path.read_text(encoding="utf-8"))
         self.last_hit = False
-        answer = self.inner.suggest(request)
+        answer = call()
         path.write_text(answer.model_dump_json(), encoding="utf-8")
         return answer
+
+    def suggest(self, request: LLMRequest) -> LLMSuggestion:
+        return self._cached(self._path(request), LLMSuggestion, lambda: self.inner.suggest(request))
+
+    def choose_analytic(self, request: AnalyticRequest) -> AnalyticChoice:
+        return self._cached(self._path(request, "analytic:"), AnalyticChoice,
+                            lambda: self.inner.choose_analytic(request))
 
 
 class DryRunProvider(LLMProvider):
@@ -153,14 +170,26 @@ class DryRunProvider(LLMProvider):
     def __init__(self, model: str):
         self.model = model
         self.requests: list[LLMRequest] = []
+        self.analytic_requests: list[AnalyticRequest] = []
 
     def suggest(self, request: LLMRequest) -> LLMSuggestion:
         self.requests.append(request)
         raise LLMError("dry run — no API call sent")
 
+    def choose_analytic(self, request: AnalyticRequest) -> AnalyticChoice:
+        self.analytic_requests.append(request)
+        raise LLMError("dry run — no API call sent")
+
+    @property
+    def total_calls(self) -> int:
+        return len(self.requests) + len(self.analytic_requests)
+
     def estimated_prompt_tokens(self) -> int:
         # ~4 characters per token is a conservative rule of thumb for Latin-script text.
-        return sum((len(SYSTEM_PROMPT) + len(build_user_prompt(r))) // 4 for r in self.requests)
+        synthetic = sum((len(SYSTEM_PROMPT) + len(build_user_prompt(r))) // 4 for r in self.requests)
+        analytic = sum((len(ANALYTIC_SYSTEM_PROMPT) + len(build_analytic_prompt(r))) // 4
+                       for r in self.analytic_requests)
+        return synthetic + analytic
 
 
 @dataclass
@@ -170,6 +199,7 @@ class RunInfo:
     gemini: GeminiProvider | None = None
     dry_run: DryRunProvider | None = None
     cache_hits: int = 0
+    possible_analytic: int = 0  # dry run: analytic calls that may follow LLM-decided synthetic accounts
 
 
 def run(
@@ -243,6 +273,10 @@ def run(
                 )
             )
             info.cache_hits += rows[-1].cached
+            if (dry_run and suggestion.konto is None and suggestion.source is Source.LLM
+                    and classifier.analytic_plan.has_client(entry["client_id"])):
+                # In a real run the synthetic answer would be followed by an analytic choice.
+                info.possible_analytic += 1
             if BUDGET_MARKER in suggestion.explanation and not announced:
                 announced = True
                 print(f"!!! Reached --max-calls {max_calls}: no further API calls will be sent. "
@@ -403,12 +437,18 @@ def main() -> None:
 
     if args.dry_run:
         planner = info.dry_run
-        needed = len(planner.requests) if planner else 0
+        needed = planner.total_calls if planner else 0
         print("DRY RUN — no API calls were sent.")
         print(f"Model: {settings.gemini_model}")
         print(f"Items: {len(rows)}; resolved by history/rules: {sum(r.source is not Source.LLM for r in rows)}")
         print(f"LLM answers already in cache: {info.cache_hits}")
-        print(f"API calls needed (without retries): {needed}  (limit --max-calls {args.max_calls})")
+        if planner:
+            print(f"API calls needed (without retries): {needed} = {len(planner.requests)} synthetic + "
+                  f"{len(planner.analytic_requests)} analytic  (limit --max-calls {args.max_calls})")
+            if info.possible_analytic:
+                print(f"Plus up to {info.possible_analytic} analytic calls after LLM-decided synthetic accounts "
+                      f"(only when the plan has several analytic accounts below the chosen one). "
+                      f"Worst case: {needed + info.possible_analytic} calls.")
         if planner:
             print(f"Estimated prompt tokens in total: ~{planner.estimated_prompt_tokens():,}")
         return

@@ -1,18 +1,26 @@
-"""The decision pipeline: history -> rules -> (masking) -> LLM -> validation."""
+"""The decision pipeline.
+
+Synthetic (3-digit) account:   given on input -> history -> rules -> (masking) -> LLM -> validation
+Analytic (4th digit) account:  only among the client's analytic accounts below the 3-digit account:
+                               history -> single option -> LLM -> validation -> otherwise the accountant decides
+"""
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
 
+from app.analytic import AnalyticAccount, AnalyticPlan
 from app.chart import ChartOfAccounts
 from app.history import HistoryStore
-from app.llm.base import LLMError, LLMProvider, LLMRequest
+from app.llm.base import AnalyticRequest, LLMError, LLMProvider, LLMRequest
 from app.masking import Masker
-from app.models import InvoiceItem, Source, Suggestion
+from app.models import AnalyticOption, AnalyticSource, AnalyticSuggestion, InvoiceItem, Source, Suggestion
 from app.rules import RuleEngine
 
 log = logging.getLogger(__name__)
+
+ONLY_OPTION_CONFIDENCE = 0.9
 
 
 @dataclass
@@ -44,12 +52,16 @@ class Classifier:
         rules: RuleEngine,
         llm: LLMProvider | None,
         review_threshold: float = 0.75,
+        analytic_plan: AnalyticPlan | None = None,
     ):
         self.chart = chart
         self.history = history
         self.rules = rules
         self.llm = llm
         self.review_threshold = review_threshold
+        self.analytic_plan = analytic_plan or AnalyticPlan()
+
+    # ------------------------------------------------------------------ synthetic account
 
     def _result(self, konto: str | None, source: Source, confidence: float, explanation: str) -> Suggestion:
         confidence = round(min(max(confidence, 0.0), 1.0), 3)
@@ -63,7 +75,19 @@ class Classifier:
         )
 
     def classify(self, ctx: ItemContext) -> Suggestion:
+        suggestion = self._classify_synthetic(ctx)
+        suggestion.analytic = self.suggest_analytic(ctx, suggestion.konto)
+        return suggestion
+
+    def _classify_synthetic(self, ctx: ItemContext) -> Suggestion:
         item = ctx.item
+
+        # 0. Account already chosen elsewhere (e.g. Iris proposes the synthetic account).
+        if item.given_konto:
+            if item.given_konto in self.chart:
+                return self._result(item.given_konto, Source.INPUT, 1.0,
+                                    "Sintetički konto je zadat na ulazu (npr. iz knjigovodstvenog programa).")
+            log.warning("Given account %r is not in the chart; classifying the item instead", item.given_konto)
 
         # 1. Client history — the strongest signal, because the accountant already decided.
         match = self.history.lookup(ctx.client_id, item.name, item.supplier_pib, item.supplier_name)
@@ -82,7 +106,7 @@ class Classifier:
             )
         return self._ask_llm(ctx)
 
-    def _ask_llm(self, ctx: ItemContext) -> Suggestion:
+    def _masker(self, ctx: ItemContext) -> Masker:
         item = ctx.item
         masker = Masker()
         masker.add_company(item.supplier_name)
@@ -90,7 +114,11 @@ class Classifier:
         masker.add_known("MB", ctx.supplier_registration_number)
         for person in ctx.person_names:
             masker.add_known("OSOBA", person)
+        return masker
 
+    def _ask_llm(self, ctx: ItemContext) -> Suggestion:
+        item = ctx.item
+        masker = self._masker(ctx)
         request = LLMRequest(
             item_text=masker.mask(ctx.text),
             client_activity=masker.mask(ctx.client_activity),
@@ -119,3 +147,85 @@ class Classifier:
             )
         explanation = masker.unmask(answer.obrazlozenje.strip()) or "LLM predlog bez obrazloženja."
         return self._result(konto, Source.LLM, answer.sigurnost, explanation)
+
+    # ------------------------------------------------------------------ analytic account
+
+    def _analytic(
+        self,
+        options: list[AnalyticAccount],
+        konto: str | None,
+        source: AnalyticSource,
+        confidence: float,
+        explanation: str,
+        *,
+        needs_review: bool | None = None,
+    ) -> AnalyticSuggestion:
+        confidence = round(min(max(confidence, 0.0), 1.0), 3)
+        chosen = next((o for o in options if o.konto == konto), None)
+        return AnalyticSuggestion(
+            konto=chosen.konto if chosen else None,
+            naziv=chosen.naziv if chosen else None,
+            source=source,
+            confidence=confidence,
+            explanation=explanation,
+            needs_review=(chosen is None or confidence < self.review_threshold) if needs_review is None
+            else needs_review,
+            options=[AnalyticOption(konto=o.konto, naziv=o.naziv, probni=o.probni) for o in options],
+        )
+
+    def suggest_analytic(self, ctx: ItemContext, konto: str | None) -> AnalyticSuggestion | None:
+        """Choose the analytic account below `konto`, only among the client's plan. None if no plan."""
+        if not konto or not self.analytic_plan.has_client(ctx.client_id):
+            return None
+        options = self.analytic_plan.options(ctx.client_id, konto)
+        if not options:
+            return self._analytic(options, None, AnalyticSource.NONE, 0.0,
+                                  f"Analitički plan klijenta nema konto ispod {konto}. Potrebna ručna provera.")
+        item = ctx.item
+        codes = {o.konto for o in options}
+
+        # 1. History: same item, then same supplier, confirmed below this synthetic account.
+        match = self.history.lookup_analytic(ctx.client_id, item.name, item.supplier_pib, item.supplier_name, konto)
+        if match is not None and match.konto in codes:
+            return self._analytic(options, match.konto, AnalyticSource.HISTORY, match.confidence, match.explanation)
+
+        # 2. Nothing to choose: the plan has exactly one analytic account below this synthetic account.
+        if len(options) == 1:
+            only = options[0]
+            return self._analytic(options, only.konto, AnalyticSource.ONLY_OPTION, ONLY_OPTION_CONFIDENCE,
+                                  f"Plan klijenta ima samo jedan analitički konto ispod {konto}: {only.konto}.")
+
+        # 3. LLM chooses from the offered list, with masked data.
+        if self.llm is None:
+            return self._analytic(options, None, AnalyticSource.NONE, 0.0,
+                                  "Nema potvrde u istoriji, a LLM nije konfigurisan — izbor je na knjigovođi.")
+        masker = self._masker(ctx)
+        request = AnalyticRequest(
+            item_text=masker.mask(ctx.text),
+            client_activity=masker.mask(ctx.client_activity),
+            konto=konto,
+            konto_naziv=self.chart.name(konto) or "",
+            options=[AnalyticOption(konto=o.konto, naziv=o.naziv) for o in options],
+        )
+        try:
+            answer = self.llm.choose_analytic(request)
+        except LLMError as exc:
+            log.warning("LLM analytic choice failed for item %r: %s", item.name, exc)
+            return self._analytic(options, None, AnalyticSource.LLM, 0.0,
+                                  f"LLM nije izabrao analitiku ({exc}). Izbor je na knjigovođi.")
+
+        # 4. Validation: only an offered analytic account is accepted.
+        chosen = answer.konto.strip()
+        if chosen not in codes:
+            log.warning("LLM returned analytic %r outside the offered list; rejected", chosen)
+            return self._analytic(options, None, AnalyticSource.LLM, 0.0,
+                                  f"LLM je predložio analitički konto '{chosen}' koji nije u planu klijenta ispod "
+                                  f"{konto} — predlog je odbačen. Izbor je na knjigovođi.")
+        explanation = masker.unmask(answer.obrazlozenje.strip()) or "LLM izbor bez obrazloženja."
+        confidence = min(max(answer.sigurnost, 0.0), 1.0)
+        if confidence < self.review_threshold:
+            # Not sure enough: do not preselect anything, leave the choice to the accountant.
+            return self._analytic(options, None, AnalyticSource.LLM, confidence,
+                                  f"LLM nije dovoljno siguran (najbliži: {chosen}, sigurnost {confidence:.2f}): "
+                                  f"{explanation} Izbor je na knjigovođi.")
+        return self._analytic(options, chosen, AnalyticSource.LLM, confidence, explanation)

@@ -14,7 +14,17 @@ class Source(StrEnum):
     HISTORY = "history"
     RULE = "rule"
     LLM = "llm"
+    INPUT = "input"  # 3-digit account supplied with the item (e.g. already proposed by Iris)
     NONE = "none"
+
+
+class AnalyticSource(StrEnum):
+    """Which step chose the analytic (4th-digit) account."""
+
+    HISTORY = "history"
+    ONLY_OPTION = "only_option"  # the client's plan has exactly one analytic below the account
+    LLM = "llm"
+    NONE = "none"  # left to the accountant
 
 
 class Party(BaseModel):
@@ -35,6 +45,11 @@ class InvoiceItem(BaseModel):
     vat_rate: float | None = None
     supplier_name: str | None = None
     supplier_pib: str | None = None
+    given_konto: str | None = Field(
+        default=None,
+        pattern=r"^\d{3}$",
+        description="3-digit account already chosen elsewhere (e.g. by Iris); only the analytic account is suggested",
+    )
 
 
 class InvoiceMeta(BaseModel):
@@ -50,6 +65,22 @@ class ParsedInvoice(BaseModel):
     items: list[InvoiceItem]
 
 
+class AnalyticOption(BaseModel):
+    konto: str
+    naziv: str
+    probni: bool = False
+
+
+class AnalyticSuggestion(BaseModel):
+    konto: str | None = Field(description="Suggested analytic account, or null when left to the accountant")
+    naziv: str | None = None
+    source: AnalyticSource
+    confidence: float = Field(ge=0.0, le=1.0)
+    explanation: str
+    needs_review: bool
+    options: list[AnalyticOption] = Field(description="All analytic accounts of the client below the 3-digit account")
+
+
 class Suggestion(BaseModel):
     konto: str | None = Field(description="Suggested 3-digit account, or null when undecided")
     konto_name: str | None = None
@@ -57,6 +88,9 @@ class Suggestion(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     explanation: str
     needs_review: bool
+    analytic: AnalyticSuggestion | None = Field(
+        default=None, description="Analytic (4th-digit) suggestion; null when the client has no analytic plan"
+    )
 
 
 class ItemResult(BaseModel):
@@ -88,6 +122,9 @@ class ConfirmRequest(BaseModel):
     supplier_pib: str | None = None
     suggested_konto: str | None = None
     suggested_source: Source | None = None
+    analytic_konto: str | None = Field(default=None, pattern=r"^\d{4,}$", examples=["5133"])
+    suggested_analytic: str | None = None
+    suggested_analytic_source: AnalyticSource | None = None
 
 
 class HistoryRecord(BaseModel):
@@ -101,6 +138,11 @@ class HistoryRecord(BaseModel):
     suggested_konto: str | None
     suggested_source: Source | None
     corrected: bool
+    analytic_konto: str | None = None
+    analytic_name: str | None = None
+    suggested_analytic: str | None = None
+    suggested_analytic_source: AnalyticSource | None = None
+    analytic_corrected: bool = False
     confirmed_at: datetime
 
 

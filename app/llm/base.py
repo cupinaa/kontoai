@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, Field
 
-from app.models import Account
+from app.models import Account, AnalyticOption
 
 
 class LLMError(RuntimeError):
@@ -90,6 +90,45 @@ def build_user_prompt(request: LLMRequest) -> str:
     return "\n".join(lines)
 
 
+class AnalyticRequest(BaseModel):
+    """Choice of an analytic account among the client's options. Text fields are already masked."""
+
+    item_text: str
+    client_activity: str
+    konto: str
+    konto_naziv: str
+    options: list[AnalyticOption]
+
+
+class AnalyticChoice(BaseModel):
+    konto: str = Field(description="Analitički konto iz ponuđenog spiska")
+    sigurnost: float = Field(description="Sigurnost od 0 do 1")
+    obrazlozenje: str = Field(description="Kratko obrazloženje na srpskom jeziku")
+
+
+ANALYTIC_SYSTEM_PROMPT = """Ti si iskusan knjigovođa u Republici Srbiji. Sintetički (trocifreni) konto stavke
+je već određen. Tvoj zadatak je da izabereš analitički konto iz kontnog plana klijenta.
+
+Pravila:
+- Smeš da izabereš ISKLJUČIVO jedan od ponuđenih analitičkih konta. Nikada ne izmišljaj konto.
+- Ako nijedan ponuđeni konto ne odgovara dobro ili je opis nejasan, izaberi najbliži, ali stavi sigurnost ispod 0.6.
+- Oznake u uglastim zagradama (npr. [DOBAVLJAC_1]) zamenjuju poverljive podatke; ne pokušavaj da ih pogodiš.
+- "obrazlozenje" piši na srpskom jeziku (latinica), u jednoj rečenici.
+"""
+
+
+def build_analytic_prompt(request: AnalyticRequest) -> str:
+    lines = [
+        f"Delatnost klijenta: {request.client_activity}",
+        f"Stavka fakture: {request.item_text}",
+        f"Sintetički konto: {request.konto} {request.konto_naziv}",
+        "",
+        "Ponuđeni analitički konti:",
+    ]
+    lines.extend(f"- {o.konto} {o.naziv}" for o in request.options)
+    return "\n".join(lines)
+
+
 class LLMProvider(ABC):
     """Interface every model backend implements."""
 
@@ -99,3 +138,10 @@ class LLMProvider(ABC):
     @abstractmethod
     def suggest(self, request: LLMRequest) -> LLMSuggestion:
         """Return a structured suggestion. Raise `LLMError` on failure."""
+
+    def choose_analytic(self, request: AnalyticRequest) -> AnalyticChoice:
+        """Choose an analytic account among `request.options`. Raise `LLMError` on failure.
+
+        Providers that do not implement it simply leave the analytic choice to the accountant.
+        """
+        raise LLMError(f"{self.name} ne podržava izbor analitičkog konta")

@@ -23,6 +23,7 @@ class Settings:
     db_path: Path
     chart_path: Path
     rules_path: Path
+    analytic_plan_path: Path = DATA_DIR / "analiticki_plan.json"
 
 
 def _resolve(path_value: str) -> Path:
@@ -41,4 +42,7 @@ def get_settings() -> Settings:
         db_path=_resolve(os.getenv("KONTOAI_DB_PATH", "kontoai.db")),
         chart_path=_resolve(os.getenv("KONTOAI_CHART_PATH", str(DATA_DIR / "kontni_okvir.json"))),
         rules_path=_resolve(os.getenv("KONTOAI_RULES_PATH", str(DATA_DIR / "rules.json"))),
+        analytic_plan_path=_resolve(
+            os.getenv("KONTOAI_ANALYTIC_PLAN_PATH", str(DATA_DIR / "analiticki_plan.json"))
+        ),
     )

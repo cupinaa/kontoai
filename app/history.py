@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from app.models import HistoryRecord, Source
+from app.models import AnalyticSource, HistoryRecord, Source
 from app.text import normalize
 
 _SCHEMA = """
@@ -36,6 +36,15 @@ CREATE TABLE IF NOT EXISTS confirmations (
 CREATE INDEX IF NOT EXISTS ix_conf_item ON confirmations (client_id, item_key);
 CREATE INDEX IF NOT EXISTS ix_conf_supplier ON confirmations (client_id, supplier_key);
 """
+
+# Columns added after the first release; created on start-up if an older database lacks them.
+_ANALYTIC_COLUMNS = {
+    "analytic_konto": "TEXT",
+    "analytic_name": "TEXT",
+    "suggested_analytic": "TEXT",
+    "suggested_analytic_source": "TEXT",
+    "analytic_corrected": "INTEGER NOT NULL DEFAULT 0",
+}
 
 ITEM_MATCH_CONFIDENCE = 0.95
 ITEM_MATCH_MIXED_CONFIDENCE = 0.85
@@ -66,6 +75,10 @@ class HistoryStore:
             Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         with closing(self._connect()) as conn, conn:
             conn.executescript(_SCHEMA)
+            existing = {row["name"] for row in conn.execute("PRAGMA table_info(confirmations)")}
+            for column, ddl in _ANALYTIC_COLUMNS.items():
+                if column not in existing:
+                    conn.execute(f"ALTER TABLE confirmations ADD COLUMN {column} {ddl}")
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
@@ -83,14 +96,21 @@ class HistoryStore:
         supplier_pib: str | None = None,
         suggested_konto: str | None = None,
         suggested_source: Source | None = None,
+        analytic_konto: str | None = None,
+        analytic_name: str | None = None,
+        suggested_analytic: str | None = None,
+        suggested_analytic_source: AnalyticSource | None = None,
     ) -> HistoryRecord:
         corrected = suggested_konto is not None and suggested_konto != konto
+        analytic_corrected = analytic_konto is not None and suggested_analytic not in (None, analytic_konto)
         now = datetime.now(UTC).isoformat(timespec="seconds")
         with closing(self._connect()) as conn, conn:
             cursor = conn.execute(
                 """INSERT INTO confirmations (client_id, item_key, item_name, supplier_key, supplier_name,
-                       supplier_pib, konto, konto_name, suggested_konto, suggested_source, corrected, confirmed_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       supplier_pib, konto, konto_name, suggested_konto, suggested_source, corrected, confirmed_at,
+                       analytic_konto, analytic_name, suggested_analytic, suggested_analytic_source,
+                       analytic_corrected)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     client_id,
                     normalize(item_name),
@@ -104,6 +124,11 @@ class HistoryStore:
                     suggested_source.value if suggested_source else None,
                     int(corrected),
                     now,
+                    analytic_konto,
+                    analytic_name,
+                    suggested_analytic,
+                    suggested_analytic_source.value if suggested_analytic_source else None,
+                    int(analytic_corrected),
                 ),
             )
             row = conn.execute("SELECT * FROM confirmations WHERE id = ?", (cursor.lastrowid,)).fetchone()
@@ -164,6 +189,56 @@ class HistoryStore:
         )
 
 
+    def lookup_analytic(
+        self,
+        client_id: str,
+        item_name: str,
+        supplier_pib: str | None,
+        supplier_name: str | None,
+        konto: str,
+    ) -> HistoryMatch | None:
+        """Confirmed analytic account for the same item, else the same supplier, below `konto`."""
+        with closing(self._connect()) as conn:
+            item_rows = conn.execute(
+                """SELECT analytic_konto FROM confirmations
+                   WHERE client_id = ? AND item_key = ? AND konto = ? AND analytic_konto IS NOT NULL
+                   ORDER BY id DESC""",
+                (client_id, normalize(item_name), konto),
+            ).fetchall()
+            key = supplier_key(supplier_pib, supplier_name)
+            supplier_rows = []
+            if not item_rows and key is not None:
+                supplier_rows = conn.execute(
+                    """SELECT analytic_konto FROM confirmations
+                       WHERE client_id = ? AND supplier_key = ? AND konto = ? AND analytic_konto IS NOT NULL""",
+                    (client_id, key, konto),
+                ).fetchall()
+
+        if item_rows:
+            latest = item_rows[0]["analytic_konto"]
+            consistent = all(r["analytic_konto"] == latest for r in item_rows)
+            return HistoryMatch(
+                konto=latest,
+                confidence=ITEM_MATCH_CONFIDENCE if consistent else ITEM_MATCH_MIXED_CONFIDENCE,
+                explanation=(f"Ista stavka je kod ovog klijenta ranije potvrđena na analitički konto {latest} "
+                             f"(broj potvrda: {len(item_rows)})."),
+            )
+        if not supplier_rows:
+            return None
+        counts = Counter(r["analytic_konto"] for r in supplier_rows)
+        analytic, top = counts.most_common(1)[0]
+        total = len(supplier_rows)
+        if top / total < SUPPLIER_MIN_SHARE:
+            return None
+        confidence = SUPPLIER_SINGLE_CONFIDENCE if total == 1 else SUPPLIER_MATCH_CONFIDENCE * top / total
+        return HistoryMatch(
+            konto=analytic,
+            confidence=round(confidence, 3),
+            explanation=(f"Stavke ovog dobavljača na kontu {konto} su ranije potvrđene na analitički konto "
+                         f"{analytic} ({top} od {total} potvrda)."),
+        )
+
+
 def _to_record(row: sqlite3.Row) -> HistoryRecord:
     return HistoryRecord(
         id=row["id"],
@@ -176,5 +251,12 @@ def _to_record(row: sqlite3.Row) -> HistoryRecord:
         suggested_konto=row["suggested_konto"],
         suggested_source=Source(row["suggested_source"]) if row["suggested_source"] else None,
         corrected=bool(row["corrected"]),
+        analytic_konto=row["analytic_konto"],
+        analytic_name=row["analytic_name"],
+        suggested_analytic=row["suggested_analytic"],
+        suggested_analytic_source=(
+            AnalyticSource(row["suggested_analytic_source"]) if row["suggested_analytic_source"] else None
+        ),
+        analytic_corrected=bool(row["analytic_corrected"]),
         confirmed_at=datetime.fromisoformat(row["confirmed_at"]),
     )

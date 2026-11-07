@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.analytic import AnalyticPlan
 from app.chart import ChartOfAccounts
 from app.classifier import Classifier, ItemContext
 from app.config import Settings
@@ -28,6 +29,7 @@ def build_classifier(settings: Settings, llm: LLMProvider | None = None, *, use_
         rules=RuleEngine.load(settings.rules_path),
         llm=llm,
         review_threshold=settings.review_threshold,
+        analytic_plan=AnalyticPlan.load(settings.analytic_plan_path),
     )
 
 
@@ -60,5 +62,8 @@ def classify_invoice(
         client_activity=client_activity,
         invoice=meta,
         items=results,
-        needs_review_count=sum(r.suggestion.needs_review for r in results),
+        needs_review_count=sum(
+            r.suggestion.needs_review or bool(r.suggestion.analytic and r.suggestion.analytic.needs_review)
+            for r in results
+        ),
     )

@@ -6,19 +6,25 @@ import logging
 import re
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TypeVar
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.llm.base import (
+    ANALYTIC_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
+    AnalyticChoice,
+    AnalyticRequest,
     CallBudget,
     LLMError,
     LLMProvider,
     LLMRequest,
     LLMSuggestion,
+    build_analytic_prompt,
     build_user_prompt,
 )
+
+T = TypeVar("T", bound=BaseModel)
 
 
 def response_schema(allowed_codes: list[str]) -> dict[str, Any]:
@@ -36,12 +42,24 @@ def response_schema(allowed_codes: list[str]) -> dict[str, Any]:
     }
 
 
+def analytic_schema(allowed_codes: list[str]) -> dict[str, Any]:
+    """JSON schema for the analytic choice; the enum contains only the offered analytic accounts."""
+    return {
+        "type": "object",
+        "properties": {
+            "konto": {"type": "string", "enum": allowed_codes, "description": "Analitički konto iz ponuđenog spiska"},
+            "sigurnost": {"type": "number", "minimum": 0, "maximum": 1, "description": "Sigurnost 0-1"},
+            "obrazlozenje": {"type": "string", "description": "Kratko obrazloženje na srpskom"},
+        },
+        "required": ["konto", "sigurnost", "obrazlozenje"],
+        "propertyOrdering": ["konto", "sigurnost", "obrazlozenje"],
+    }
+
+
 log = logging.getLogger(__name__)
 
 _RETRY_IN = re.compile(r"retry in\s+([\d.]+)\s*s", re.IGNORECASE)
 _RETRY_DELAY = re.compile(r"retryDelay['\"]?\s*:\s*['\"]?([\d.]+)s")
-
-
 _TRANSIENT_CODES = {500, 502, 503, 504}
 
 
@@ -98,15 +116,30 @@ class GeminiProvider(LLMProvider):
         self._client = client
 
     def suggest(self, request: LLMRequest) -> LLMSuggestion:
+        return self._generate(
+            SYSTEM_PROMPT,
+            build_user_prompt(request),
+            response_schema([a.konto for a in request.accounts]),
+            LLMSuggestion,
+        )
+
+    def choose_analytic(self, request: AnalyticRequest) -> AnalyticChoice:
+        return self._generate(
+            ANALYTIC_SYSTEM_PROMPT,
+            build_analytic_prompt(request),
+            analytic_schema([o.konto for o in request.options]),
+            AnalyticChoice,
+        )
+
+    def _generate(self, system: str, prompt: str, schema: dict[str, Any], model_cls: type[T]) -> T:
         from google.genai import types
 
         config = types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
+            system_instruction=system,
             response_mime_type="application/json",
-            response_json_schema=response_schema([a.konto for a in request.accounts]),
+            response_json_schema=schema,
             temperature=0.0,
         )
-        prompt = build_user_prompt(request)
         attempt = 0
         while True:
             if self.budget is not None:
@@ -130,7 +163,7 @@ class GeminiProvider(LLMProvider):
         if not text:
             raise LLMError("Gemini je vratio prazan odgovor.")
         try:
-            return LLMSuggestion.model_validate_json(text)
+            return model_cls.model_validate_json(text)
         except ValidationError as exc:
             raise LLMError(f"Gemini odgovor ne odgovara šemi: {exc.error_count()} grešaka") from exc
 
