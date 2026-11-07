@@ -20,7 +20,7 @@ KontoAI focuses on that step:
 - **LLM only where needed.** It asks an LLM only when there is no history and the plan has several options.
 - **The accountant decides.** When it is not sure, it preselects nothing and leaves the choice to the accountant.
 
-KontoAI also **double-checks Iris**. It always computes its own 3-digit suggestion (history → rules → LLM) and puts it next to the Iris account:
+KontoAI also **double-checks Iris**. It always computes its own 3-digit suggestion (item history → rules → supplier history → LLM) and puts it next to the Iris account:
 - *"Poklapa se sa Iris-om"* when the two agree;
 - *"Ne poklapa se — proveri"* when they differ, and the item then goes to manual review.
 
@@ -40,19 +40,41 @@ These are real runs with Gemini (`gemini-3.6-flash`) through the web page, on 20
 - **Row 4:** no rule applies, so the LLM proposed 532 against Iris' 539. It is flagged *Ne poklapa se — proveri*.
 - **Row 5:** the rent rule says 533, Iris says 539, so it is also flagged. The LLM was not sure enough about the analytic account (0.50), so nothing is preselected.
 
-**2. After confirming 5331 in row 2 and uploading the same invoice again:**
+**2. After confirming 5331 in row 2 and uploading the same invoice again** (after the fix described below, with a clean database):
 
 ![Second upload](docs/screenshots/02_drugo_ubacivanje.png)
 
-- **Row 2** now comes from history (*Istorija 95%*), and no LLM call was made for it.
-- **Supplier-level history also spread to other lines**, which is a real weakness this demo exposed:
-  - all lines now get the 3-digit account 533 from *"same supplier"* history with a single confirmation;
-  - row 3 (electricity) therefore shows *Ne poklapa se* against Iris' correct 513;
-  - row 1 got analytic 5331 instead of 5330.
-- **The Iris check catches the 3-digit cases.** The mismatches go to review instead of being posted silently. The analytic level has no such check.
-- **Possible fix** (not implemented yet): require at least two consistent confirmations for a supplier-level match, and let keyword rules win over supplier-level history. See [Limitations](#limitations).
+- **Row 2** now comes from item history (*Istorija 95%*): the same supplier and the same description were confirmed before.
+- **The other lines are untouched by that single confirmation:**
+  - row 1 keeps 5330;
+  - row 3 stays 513 → 5133 and matches Iris;
+  - rows 4 and 5 keep their LLM and rule results.
+- **The second upload made no LLM calls.** Row 2 came from history, and the other lines' identical masked requests were answered from the server's in-memory cache.
 
-The two uploads used 7 LLM requests. The whole demo session used 12, with a server-wide cap of 20, about 13k tokens and **≈ $0.03**.
+#### The bug this demo found, and the fix
+
+**Bug.** In the first version of the demo, the second upload showed that **one** confirmation spread to all lines of the same supplier. The supplier was a landlord who also re-invoices electricity:
+- every line got 533 from *same-supplier* history (confidence 0.80);
+- electricity (row 3) suddenly did not match Iris' correct 513;
+- office rent (row 1) got the warehouse analytic 5331 instead of 5330.
+
+The Iris check flagged the 3-digit cases. The analytic level had no such check.
+
+**Fix** ([`app/history.py`](app/history.py), [`app/classifier.py`](app/classifier.py)):
+1. **Item history comes first.** It means *the same supplier* and *the same or a similar description*: the same normalised text, or at least 80% overlap of the descriptive words, ignoring months, numbers and filler words. *"Zakup poslovnog prostora za novembar"* and *"… za decembar"* are the same item. *"Zakup magacinskog prostora"* is a different one.
+2. **Supplier history is used only when every confirmed item of that supplier is on the same account, and there are at least two.** A supplier that was ever confirmed on two different accounts is never used at supplier level.
+3. **Keyword rules beat supplier history, but not item history.** The new order is item history → rules → supplier history → LLM.
+4. **The analytic level follows the same rules, and it never leaves the Iris account.** History may suggest an analytic account only below the 3-digit account Iris gave.
+
+A test replays the demo exactly: `test_demo_replay_sample_06_learning_without_spreading` in [`tests/test_analytic_suggestion.py`](tests/test_analytic_suggestion.py).
+
+**Cost of the demos:**
+
+| Run | LLM requests | Cost |
+|---|---|---|
+| First version, before the fix: the in-app browser plus two headless uploads | 12 | ≈ $0.033 |
+| Re-run after the fix, clean database, server cap 8 | 5 (second upload 0, from cache) | ≈ $0.015 |
+| **Total** | **17 of the 20 approved** | **≈ $0.05** |
 
 ## How it works
 
@@ -114,10 +136,11 @@ The stages are:
 
 | # | Stage | Confidence | Notes |
 |---|---|---|---|
-| 1 | **Client history** (SQLite) | 0.95 same item, 0.80–0.85 same supplier | Uses only decisions this client's accountant has already confirmed. A supplier that was posted to different accounts in the past (less than 80% agreement) is ignored. |
-| 2 | **Keyword rules** ([`data/rules.json`](data/rules.json)) | 0.88–0.92 | Text is normalised (lowercase, no diacritics, Cyrillic converted to Latin). Rules can exclude keywords (*filter goriva*) and client activities (fuel at a petrol station). When two rules point to different accounts, the item goes to the LLM. |
-| 3 | **LLM** (Gemini) | from the model | Gets only the masked item text, the client's activity and the list of allowed accounts. Output is constrained by a JSON schema. |
-| 4 | **Validation** | — | An account that is not in the chart is rejected and the item is flagged. The schema `enum` already restricts the model; the validation is a second layer that applies to any provider. |
+| 1 | **Item history** (SQLite) | 0.95 same text, 0.90 similar text | Same supplier **and** the same or a similar description, already confirmed by this client's accountant. |
+| 2 | **Keyword rules** ([`data/rules.json`](data/rules.json)) | 0.88–0.92 | Rules beat supplier history, but not item history. Text is normalised (lowercase, no diacritics, Cyrillic converted to Latin). Rules can exclude keywords (*filter goriva*) and client activities (fuel at a petrol station). When two rules point to different accounts, the item goes to the LLM. |
+| 3 | **Supplier history** | 0.85 | Used only if **all** confirmations of the supplier are on one account and there are **at least two**. A supplier ever confirmed on two different accounts is never used here. |
+| 4 | **LLM** (Gemini) | from the model | Gets only the masked item text, the client's activity and the list of allowed accounts. Output is constrained by a JSON schema. Identical masked requests are answered from an in-memory cache. |
+| 5 | **Validation** | — | An account that is not in the chart is rejected and the item is flagged. The schema `enum` already restricts the model; the validation is a second layer that applies to any provider. |
 
 Every result contains these fields:
 - `konto`, `konto_name`;
@@ -132,7 +155,7 @@ After the 3-digit account is known, KontoAI looks only at the client's analytic 
 
 | # | Step | Confidence | Notes |
 |---|---|---|---|
-| 1 | **Client history** | 0.95 same item, 0.80–0.85 same supplier | A confirmed analytic account counts only for the same 3-digit account. |
+| 1 | **Item history**, then **supplier history** | 0.95 / 0.90 item, 0.85 supplier | The same rules as for the 3-digit account: same supplier and similar text, or a supplier with at least two confirmations, all on one analytic account. A history suggestion is **only ever below the current 3-digit account**, which is the Iris account when one is given. |
 | 2 | **Only one option** | 0.90 | The plan has exactly one analytic account below the 3-digit one, so there is nothing to choose and no LLM call is made. |
 | 3 | **LLM** | from the model | Gets the masked item text, the client's activity and *only the offered options*; the JSON schema `enum` contains just those codes. |
 | 4 | **Validation** | — | An answer outside the offered list is rejected. If the model's confidence is below the threshold, nothing is preselected; the model's closest guess appears in the explanation. |
@@ -147,7 +170,9 @@ The result is in `suggestion.analytic`: `konto`, `naziv`, `source` (`history` / 
 app/
   main.py          FastAPI app and endpoints (create_app factory)
   service.py       wiring: builds the classifier, runs whole invoices
-  classifier.py    the pipeline: synthetic (history -> rules -> LLM) and analytic (history -> only option -> LLM)
+  classifier.py    the pipeline: synthetic (item history -> rules -> supplier history -> LLM)
+                   and analytic (history -> only option -> LLM)
+  llm/cache.py     in-memory cache for identical masked LLM requests
   analytic.py      per-client analytic plan and the CSV/XLSX importer
   sef_parser.py    UBL 2.1 Invoice / CreditNote parser (defusedxml, XXE-safe)
   history.py       SQLite store of confirmed postings (3-digit and analytic), per client
@@ -465,7 +490,7 @@ The response `status` is `confirmed` if the accountant accepted the suggestion a
 
 ## Tests
 
-`pytest` runs 172 tests covering:
+`pytest` runs 188 tests covering:
 - XML parsing, including XXE rejection;
 - rules, history and masking;
 - rejection of accounts outside the chart;
@@ -487,7 +512,13 @@ The response `status` is `confirmed` if the accountant accepted the suggestion a
   - `AccountingCost` parsing;
   - the agreement metric in the evaluation;
 - safe mode (`KONTOAI_DISABLE_LLM` wins over any key, including one from `.env`);
-- the server-wide call cap (`KONTOAI_MAX_LLM_CALLS`), which stops sending at the limit and reports usage in `/health`.
+- the server-wide call cap (`KONTOAI_MAX_LLM_CALLS`), which stops sending at the limit and reports usage in `/health`, and the in-memory LLM cache;
+- the history rules:
+  - same supplier plus similar description;
+  - a supplier needs at least two confirmations, all on one account;
+  - rules beat supplier history;
+  - analytic history stays below the Iris account;
+  - an exact replay of the demo.
 
 Gemini is mocked everywhere. The tests need neither internet access nor an API key, and a fixture fails any test that tries to create a real client.
 
@@ -497,14 +528,14 @@ GitHub Actions runs two jobs on every push. The first runs the test suite. The s
 
 - **The chart of accounts must be verified.** It is a partial list of 3-digit accounts relevant to incoming invoices (classes 0, 1 and 5), taken from Sl. glasnik RS 89/2020. Intangible assets (e.g. software licences) are not included.
 - **The analytic plan is a trial version.** It has one client, and it was built from the accountant's answers in the review files. It will be replaced by the Iris export. There is no accuracy measurement for the analytic step yet, and there cannot be a fair one until a plan and postings that were not used to build it are available.
-- **Supplier-level history is too eager.** One confirmation of one item from a supplier currently becomes a suggestion (confidence 0.80) for *all* items of that supplier. That suggestion even ranks above keyword rules, at both the 3-digit and the analytic level. The [demo](#demo) showed the problem with a landlord who also re-invoices electricity. The Iris check flags the 3-digit cases, but the analytic level has no such check. A fix would require at least two consistent confirmations and would let rules beat supplier-level history.
+- **History matching is simple.** "Similar description" is a word-overlap check, not semantic matching. Rewordings such as *"zakup kancelarije"* vs. *"zakup poslovnog prostora"* are not recognised as the same item. Supplier history is deliberately strict: it needs at least two confirmations, all on one account. That was the fix for the problem the [demo](#demo) exposed. As a result, a mixed supplier, such as a landlord who also re-invoices electricity, never gets supplier-level suggestions.
 - **Single option = no question asked.** If the plan has only one analytic account below a 3-digit account, it is preselected without an LLM call. With an incomplete plan, that may hide the fact that a better analytic account is missing.
 - **VAT is not handled.** The system suggests the cost/asset account for the net amount. Input VAT (*prethodni porez*, group 27), the supplier account (435) and the full posting entry are out of scope.
 - **Accounting policy matters.** Whether a laptop is a fixed asset (023) or small inventory, and whether goods are booked at wholesale or retail, depends on the client's policy. The system cannot know this until the accountant confirms a few decisions.
 - **Masking is pattern-based.** Names that appear without a marker word in free text may not be detected. In production this should be combined with an NER model and a review of what is sent.
 - **Synthetic evaluation data.** The 50-item dataset is small and fictional. Its items, expected accounts and rules were written by the same author, and the expected accounts have not been verified by an accountant.
 - **Free-tier API limits.** The Gemini free tier (5 requests/minute, 20 requests/day per model) is enough for a demo, not for production volumes. The provider retries on rate limits and transient 5xx errors; items it still cannot get an answer for are flagged for review.
-- **Prototype scope.** There is no authentication or multi-user access control, history matching is exact (no fuzzy matching), and items are sent to the LLM one at a time.
+- **Prototype scope.** There is no authentication or multi-user access control, items are sent to the LLM one at a time, and the LLM cache lives only as long as the server process.
 
 ## Possible next steps
 
