@@ -1,6 +1,6 @@
 """The decision pipeline.
 
-Synthetic (3-digit) account:   history -> rules -> (masking) -> LLM -> validation;
+Synthetic (3-digit) account:   item history -> rules -> supplier history -> (masking) -> LLM -> validation;
                                if Iris gave an account, the result is compared with it (match / mismatch)
 Analytic (4th digit) account:  only among the client's analytic accounts below the 3-digit account:
                                history -> single option -> LLM -> validation -> otherwise the accountant decides
@@ -116,17 +116,22 @@ class Classifier:
     def _classify_synthetic(self, ctx: ItemContext) -> Suggestion:
         item = ctx.item
 
-        # 1. Client history — the strongest signal, because the accountant already decided.
-        match = self.history.lookup(ctx.client_id, item.name, item.supplier_pib, item.supplier_name)
+        # 1. Item history (same supplier + same/similar description) — the accountant already decided.
+        match = self.history.lookup_item(ctx.client_id, item.name, item.supplier_pib, item.supplier_name)
         if match is not None and match.konto in self.chart:
             return self._result(match.konto, Source.HISTORY, match.confidence, match.explanation)
 
-        # 2. Keyword rules for obvious cases.
+        # 2. Keyword rules for obvious cases. They beat supplier-level history.
         rule_match = self.rules.match(ctx.text, ctx.client_activity)
         if rule_match is not None and rule_match.rule.konto in self.chart:
             return self._result(rule_match.rule.konto, Source.RULE, rule_match.rule.confidence, rule_match.explanation)
 
-        # 3. LLM, only with masked data.
+        # 3. Supplier history: only if every confirmed item of the supplier is on one account (at least two).
+        match = self.history.lookup_supplier(ctx.client_id, item.supplier_pib, item.supplier_name)
+        if match is not None and match.konto in self.chart:
+            return self._result(match.konto, Source.HISTORY, match.confidence, match.explanation)
+
+        # 4. LLM, only with masked data.
         if self.llm is None:
             return self._result(
                 None, Source.NONE, 0.0, "Istorija i pravila nisu prepoznali stavku, a LLM nije konfigurisan."
@@ -161,7 +166,7 @@ class Classifier:
             log.warning("LLM failed for item %r: %s", item.name, exc)
             return self._result(None, Source.LLM, 0.0, f"LLM nije dao odgovor ({exc}). Potrebna ručna provera.")
 
-        # 4. Validation: the model may only choose accounts from our list.
+        # 5. Validation: the model may only choose accounts from our list.
         konto = answer.konto.strip()
         if konto not in self.chart:
             log.warning("LLM returned account %r outside the chart; rejected", konto)
@@ -211,7 +216,8 @@ class Classifier:
         item = ctx.item
         codes = {o.konto for o in options}
 
-        # 1. History: same item, then same supplier, confirmed below this synthetic account.
+        # 1. History: same/similar item of the same supplier, then a consistent supplier (at least two
+        #    confirmations) — both only BELOW `konto`, which is Iris' account when one is given.
         match = self.history.lookup_analytic(ctx.client_id, item.name, item.supplier_pib, item.supplier_name, konto)
         if match is not None and match.konto in codes:
             return self._analytic(options, match.konto, AnalyticSource.HISTORY, match.confidence, match.explanation)

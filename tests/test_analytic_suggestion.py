@@ -159,13 +159,99 @@ def test_history_item_then_supplier_for_analytic(chart, history: HistoryStore, r
                 supplier_pib="400000001")
     clf = make(chart, history, rules, llm)
 
-    same_item = clf.classify(ctx("Zakup magacina")).analytic
+    same_item = clf.classify(ctx("Zakup magacina", supplier_pib="400000001")).analytic
     assert same_item.konto == "5331" and same_item.source is AnalyticSource.HISTORY
 
-    same_supplier = clf.classify(ctx("Zakup - novembar", supplier_pib="400000001")).analytic
-    assert same_supplier.konto == "5331" and same_supplier.source is AnalyticSource.HISTORY
-    assert "dobavljača" in same_supplier.explanation
-    assert llm.analytic_requests == []
+    # One confirmation is not enough for a different item of the same supplier ...
+    one = clf.classify(ctx("Zakup - novembar", supplier_pib="400000001")).analytic
+    assert one.source is AnalyticSource.LLM and one.konto == "5330"
+
+    # ... two consistent confirmations are.
+    history.add(client_id=CLIENT, item_name="Zakup hladnjače", konto="533", analytic_konto="5331",
+                supplier_pib="400000001")
+    two = clf.classify(ctx("Zakup - novembar", supplier_pib="400000001")).analytic
+    assert two.konto == "5331" and two.source is AnalyticSource.HISTORY
+    assert "Sve potvrđene stavke ovog dobavljača (2)" in two.explanation
+
+
+def test_supplier_analytic_never_below_a_different_synthetic_account(chart, history: HistoryStore, rules):
+    for name in ("Zakup magacina", "Zakup hladnjače"):
+        history.add(client_id=CLIENT, item_name=name, konto="533", analytic_konto="5331", supplier_pib="400000001")
+    # Iris says 534: the supplier's consistent 5331 (below 533) must not be suggested.
+    s = make(chart, history, rules, FakeLLM()).classify(
+        ctx("Prostor za izlaganje", supplier_pib="400000001", given_konto="534"))
+    assert s.konto == "533" and s.given_check is GivenCheck.MISMATCH  # supplier history at 3-digit level
+    a = s.analytic
+    assert a.konto == "5340" and a.source is AnalyticSource.ONLY_OPTION
+    assert [o.konto for o in a.options] == ["5340"]
+
+
+def test_rules_beat_supplier_history_but_not_item_history(chart, history: HistoryStore, rules):
+    for name in ("Zakup magacina", "Zakup hladnjače"):
+        history.add(client_id=CLIENT, item_name=name, konto="533", supplier_pib="400000001")
+    clf = make(chart, history, rules, FakeLLM())
+    # Electricity from the same landlord: the energy rule wins over the (consistent) supplier history.
+    s = clf.classify(ctx("Električna energija - refakturisanje", supplier_pib="400000001"))
+    assert s.konto == "513" and s.source is Source.RULE
+    # An item without a rule falls back to the consistent supplier history.
+    s2 = clf.classify(ctx("Čišćenje prostorija", supplier_pib="400000001"))
+    assert s2.konto == "533" and s2.source is Source.HISTORY
+    # Item history beats the rule: the accountant booked this exact item to 539 before.
+    history.add(client_id=CLIENT, item_name="Električna energija - refakturisanje", konto="539",
+                supplier_pib="400000001")
+    s3 = clf.classify(ctx("Električna energija - refakturisanje", supplier_pib="400000001"))
+    assert s3.konto == "539" and s3.source is Source.HISTORY
+
+
+def test_demo_replay_sample_06_learning_without_spreading(settings, sample_bytes):
+    """Exactly the demo of 2026-11-07: upload 06 for K001, confirm 5331 on row 2, upload again.
+
+    Before the fix, the single confirmation spread to the landlord's other lines: row 1 got 5331
+    and row 3 (electricity) got 533 instead of Iris' 513.
+    """
+    from dataclasses import replace
+
+    from app.config import DATA_DIR
+
+    llm = FakeLLM(konto="539")  # analytic: first offered option
+    app = create_app(replace(settings, analytic_plan_path=DATA_DIR / "analiticki_plan.json"), llm=llm)
+    client = TestClient(app)
+
+    def upload():
+        response = client.post(
+            "/invoices/xml",
+            files={"file": ("06.xml", sample_bytes("06_iris_provera_dijetetika.xml"), "application/xml")},
+            data={"client_activity": "proizvodnja dijetetskih proizvoda", "client_id": CLIENT},
+        )
+        assert response.status_code == 200, response.text
+        return [r for r in response.json()["items"]]
+
+    first = upload()
+    row2 = first[1]
+    confirm = client.post("/confirm", json={
+        "client_id": CLIENT, "item_name": row2["item"]["name"], "konto": "533",
+        "supplier_name": row2["item"]["supplier_name"], "supplier_pib": row2["item"]["supplier_pib"],
+        "analytic_konto": "5331", "suggested_konto": "533", "suggested_source": "input",
+        "suggested_analytic": row2["suggestion"]["analytic"]["konto"],
+        "suggested_analytic_source": row2["suggestion"]["analytic"]["source"],
+    })
+    assert confirm.status_code == 200, confirm.text
+
+    second = upload()
+    r1, r2, r3, r4, r5 = (r["suggestion"] for r in second)
+
+    # Row 2 learned from item history.
+    assert r2["analytic"]["konto"] == "5331" and r2["analytic"]["source"] == "history"
+    assert r2["konto"] == "533" and r2["source"] == "history"
+    # Row 1 (office rent) did NOT take over the warehouse analytic.
+    assert r1["analytic"]["konto"] in ("5330", None) and r1["analytic"]["source"] != "history"
+    assert r1["source"] == "rule" and r1["given_check"] == "match"
+    # Row 3 (electricity) stays under Iris' 513 and matches it.
+    assert r3["konto"] == "513" and r3["source"] == "rule" and r3["given_check"] == "match"
+    assert r3["analytic"]["konto"] == "5133"
+    # Rows 4 and 5 are not taken over by supplier history either.
+    assert r4["source"] != "history" and r5["source"] == "rule"
+    assert all(o["konto"].startswith("539") for o in r5["analytic"]["options"])
 
 
 def test_analytic_history_is_per_synthetic_account(chart, history: HistoryStore, rules):
@@ -279,9 +365,10 @@ def test_api_confirm_analytic_and_learn(plan_client):
     assert second["konto"] == "5331" and second["source"] == "history"
     assert len(llm.analytic_requests) == calls  # learned: no LLM call
 
+    # A different item of the same supplier: one confirmation is not enough for supplier history.
     other_item = {**payload, "items": [{"name": "Zakup - decembar", "supplier_pib": "400000009"}]}
     third = client.post("/invoices", json=other_item).json()["items"][0]["suggestion"]["analytic"]
-    assert third["konto"] == "5331" and third["source"] == "history"  # same supplier
+    assert third["source"] == "llm"
 
 
 def test_api_confirm_rejects_analytic_not_in_plan_or_wrong_synthetic(plan_client):

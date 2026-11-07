@@ -1,14 +1,21 @@
 """Per-client history of confirmed postings, stored in SQLite.
 
-Lookups, in order of strength:
-1. the same item (normalised name) was confirmed before for this client;
-2. the same supplier (PIB, or normalised name) was consistently confirmed to one account.
+Two kinds of evidence, used at different points of the pipeline:
+
+* ITEM history — the same supplier AND the same or a similar item description was confirmed before
+  for this client. Strongest signal; used before the keyword rules.
+* SUPPLIER history — used only when EVERY confirmed item of that supplier is on the same account and
+  there are at least two of them. A supplier that was ever confirmed on two different accounts is never
+  used at supplier level. Weaker than the keyword rules, so it is consulted after them.
+
+The demo on 2026-11-07 showed why: a single confirmation of "warehouse rent" from a landlord spread to
+the landlord's electricity and office-rent lines. With these rules it cannot.
 """
 
 from __future__ import annotations
 
+import re
 import sqlite3
-from collections import Counter
 from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -47,10 +54,19 @@ _ANALYTIC_COLUMNS = {
 }
 
 ITEM_MATCH_CONFIDENCE = 0.95
+ITEM_SIMILAR_CONFIDENCE = 0.90
 ITEM_MATCH_MIXED_CONFIDENCE = 0.85
 SUPPLIER_MATCH_CONFIDENCE = 0.85
-SUPPLIER_SINGLE_CONFIDENCE = 0.80
-SUPPLIER_MIN_SHARE = 0.8
+SUPPLIER_MIN_CONFIRMATIONS = 2
+SIMILARITY_THRESHOLD = 0.8
+
+# Words that do not identify WHAT was bought: months, filler words. Tokens with digits
+# (dates, quantities, article codes like T-500) are dropped as well.
+_IGNORED_WORDS = {
+    "januar", "februar", "mart", "april", "maj", "jun", "jul", "avgust", "septembar", "oktobar", "novembar",
+    "decembar", "za", "i", "u", "na", "od", "po", "sa", "do", "mesec", "mesecni", "mesecna",
+}
+_DIGIT = re.compile(r"\d")
 
 
 @dataclass(frozen=True)
@@ -66,6 +82,23 @@ def supplier_key(pib: str | None, name: str | None) -> str | None:
     if name and normalize(name):
         return f"name:{normalize(name)}"
     return None
+
+
+def item_signature(name: str) -> frozenset[str]:
+    """Words that describe the item, ignoring months, filler words and anything with digits."""
+    return frozenset(
+        t for t in normalize(name).split() if len(t) > 1 and t not in _IGNORED_WORDS and not _DIGIT.search(t)
+    )
+
+
+def similarity(a: str, b: str) -> float:
+    """1.0 for the same normalised text, otherwise the Jaccard overlap of the item signatures."""
+    if normalize(a) == normalize(b):
+        return 1.0
+    sa, sb = item_signature(a), item_signature(b)
+    if not sa or not sb:
+        return 0.0
+    return len(sa & sb) / len(sa | sb)
 
 
 class HistoryStore:
@@ -84,6 +117,8 @@ class HistoryStore:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
+
+    # ------------------------------------------------------------------ write / list
 
     def add(
         self,
@@ -141,102 +176,117 @@ class HistoryStore:
             ).fetchall()
         return [_to_record(r) for r in rows]
 
-    def lookup(
+    # ------------------------------------------------------------------ queries
+
+    def _supplier_rows(self, client_id: str, key: str | None) -> list[sqlite3.Row]:
+        with closing(self._connect()) as conn:
+            if key is None:
+                sql = "SELECT * FROM confirmations WHERE client_id = ? AND supplier_key IS NULL ORDER BY id DESC"
+                return conn.execute(sql, (client_id,)).fetchall()
+            sql = "SELECT * FROM confirmations WHERE client_id = ? AND supplier_key = ? ORDER BY id DESC"
+            return conn.execute(sql, (client_id, key)).fetchall()
+
+    @staticmethod
+    def _item_rows(rows: list[sqlite3.Row], item_name: str) -> tuple[list[sqlite3.Row], bool]:
+        """Rows for the same item: exact normalised name first, else similar descriptions."""
+        exact = [r for r in rows if r["item_key"] == normalize(item_name)]
+        if exact:
+            return exact, True
+        similar = [r for r in rows if similarity(r["item_name"], item_name) >= SIMILARITY_THRESHOLD]
+        return similar, False
+
+    def lookup_item(
         self, client_id: str, item_name: str, supplier_pib: str | None, supplier_name: str | None
     ) -> HistoryMatch | None:
-        with closing(self._connect()) as conn:
-            item_rows = conn.execute(
-                "SELECT konto FROM confirmations WHERE client_id = ? AND item_key = ? ORDER BY id DESC",
-                (client_id, normalize(item_name)),
-            ).fetchall()
-            if item_rows:
-                latest = item_rows[0]["konto"]
-                consistent = all(r["konto"] == latest for r in item_rows)
-                n = len(item_rows)
-                return HistoryMatch(
-                    konto=latest,
-                    confidence=ITEM_MATCH_CONFIDENCE if consistent else ITEM_MATCH_MIXED_CONFIDENCE,
-                    explanation=(
-                        f"Ista stavka je kod ovog klijenta ranije potvrđena na konto {latest} "
-                        f"(broj potvrda: {n}"
-                        f"{'' if consistent else '; ranije je bilo i drugačijih kontiranja, uzeto je poslednje'})."
-                    ),
-                )
-
-            key = supplier_key(supplier_pib, supplier_name)
-            if key is None:
-                return None
-            supplier_rows = conn.execute(
-                "SELECT konto FROM confirmations WHERE client_id = ? AND supplier_key = ?", (client_id, key)
-            ).fetchall()
-
-        if not supplier_rows:
+        """Same supplier + same or similar item description, confirmed before for this client."""
+        rows, exact = self._item_rows(self._supplier_rows(client_id, supplier_key(supplier_pib, supplier_name)),
+                                      item_name)
+        if not rows:
             return None
-        counts = Counter(r["konto"] for r in supplier_rows)
-        konto, top = counts.most_common(1)[0]
-        total = len(supplier_rows)
-        share = top / total
-        if share < SUPPLIER_MIN_SHARE:
-            return None  # supplier is booked to different accounts; not a reliable signal
-        confidence = SUPPLIER_SINGLE_CONFIDENCE if total == 1 else SUPPLIER_MATCH_CONFIDENCE * share
+        latest = rows[0]["konto"]
+        consistent = all(r["konto"] == latest for r in rows)
+        confidence = (ITEM_MATCH_CONFIDENCE if exact else ITEM_SIMILAR_CONFIDENCE) if consistent \
+            else ITEM_MATCH_MIXED_CONFIDENCE
+        what = "Ista stavka" if exact else f"Slična stavka („{rows[0]['item_name']}”)"
         return HistoryMatch(
-            konto=konto,
-            confidence=round(confidence, 3),
+            konto=latest,
+            confidence=confidence,
             explanation=(
-                f"Stavke ovog dobavljača su kod klijenta ranije potvrđene na konto {konto} "
-                f"({top} od {total} potvrda)."
+                f"{what} istog dobavljača je kod ovog klijenta ranije potvrđena na konto {latest} "
+                f"(broj potvrda: {len(rows)}"
+                f"{'' if consistent else '; ranije je bilo i drugačijih kontiranja, uzeto je poslednje'})."
             ),
         )
 
+    def lookup_supplier(self, client_id: str, supplier_pib: str | None, supplier_name: str | None) -> HistoryMatch | None:
+        """Only if ALL confirmations of this supplier are on one account and there are at least two."""
+        key = supplier_key(supplier_pib, supplier_name)
+        if key is None:
+            return None
+        rows = self._supplier_rows(client_id, key)
+        kontos = {r["konto"] for r in rows}
+        if len(rows) < SUPPLIER_MIN_CONFIRMATIONS or len(kontos) != 1:
+            return None  # too little evidence, or the supplier was ever booked to different accounts
+        konto = kontos.pop()
+        return HistoryMatch(
+            konto=konto,
+            confidence=SUPPLIER_MATCH_CONFIDENCE,
+            explanation=(f"Sve potvrđene stavke ovog dobavljača ({len(rows)}) su kod klijenta na kontu {konto}."),
+        )
 
-    def lookup_analytic(
-        self,
-        client_id: str,
-        item_name: str,
-        supplier_pib: str | None,
-        supplier_name: str | None,
-        konto: str,
+    def lookup(
+        self, client_id: str, item_name: str, supplier_pib: str | None, supplier_name: str | None
     ) -> HistoryMatch | None:
-        """Confirmed analytic account for the same item, else the same supplier, below `konto`."""
-        with closing(self._connect()) as conn:
-            item_rows = conn.execute(
-                """SELECT analytic_konto FROM confirmations
-                   WHERE client_id = ? AND item_key = ? AND konto = ? AND analytic_konto IS NOT NULL
-                   ORDER BY id DESC""",
-                (client_id, normalize(item_name), konto),
-            ).fetchall()
-            key = supplier_key(supplier_pib, supplier_name)
-            supplier_rows = []
-            if not item_rows and key is not None:
-                supplier_rows = conn.execute(
-                    """SELECT analytic_konto FROM confirmations
-                       WHERE client_id = ? AND supplier_key = ? AND konto = ? AND analytic_konto IS NOT NULL""",
-                    (client_id, key, konto),
-                ).fetchall()
+        """Item history, else supplier history (the classifier puts the keyword rules in between)."""
+        return (self.lookup_item(client_id, item_name, supplier_pib, supplier_name)
+                or self.lookup_supplier(client_id, supplier_pib, supplier_name))
 
-        if item_rows:
-            latest = item_rows[0]["analytic_konto"]
-            consistent = all(r["analytic_konto"] == latest for r in item_rows)
-            return HistoryMatch(
-                konto=latest,
-                confidence=ITEM_MATCH_CONFIDENCE if consistent else ITEM_MATCH_MIXED_CONFIDENCE,
-                explanation=(f"Ista stavka je kod ovog klijenta ranije potvrđena na analitički konto {latest} "
-                             f"(broj potvrda: {len(item_rows)})."),
-            )
-        if not supplier_rows:
+    def lookup_analytic_item(
+        self, client_id: str, item_name: str, supplier_pib: str | None, supplier_name: str | None, konto: str
+    ) -> HistoryMatch | None:
+        """Analytic account of the same/similar item of the same supplier, confirmed BELOW `konto` only."""
+        rows = [r for r in self._supplier_rows(client_id, supplier_key(supplier_pib, supplier_name))
+                if r["konto"] == konto and r["analytic_konto"] and r["analytic_konto"].startswith(konto)]
+        rows, exact = self._item_rows(rows, item_name)
+        if not rows:
             return None
-        counts = Counter(r["analytic_konto"] for r in supplier_rows)
-        analytic, top = counts.most_common(1)[0]
-        total = len(supplier_rows)
-        if top / total < SUPPLIER_MIN_SHARE:
+        latest = rows[0]["analytic_konto"]
+        consistent = all(r["analytic_konto"] == latest for r in rows)
+        confidence = (ITEM_MATCH_CONFIDENCE if exact else ITEM_SIMILAR_CONFIDENCE) if consistent \
+            else ITEM_MATCH_MIXED_CONFIDENCE
+        what = "Ista stavka" if exact else f"Slična stavka („{rows[0]['item_name']}”)"
+        return HistoryMatch(
+            konto=latest,
+            confidence=confidence,
+            explanation=(f"{what} istog dobavljača je kod ovog klijenta ranije potvrđena na analitički konto "
+                         f"{latest} (broj potvrda: {len(rows)})."),
+        )
+
+    def lookup_analytic_supplier(
+        self, client_id: str, supplier_pib: str | None, supplier_name: str | None, konto: str
+    ) -> HistoryMatch | None:
+        """Only if ALL analytic confirmations of the supplier are one account (≥2) and it lies below `konto`."""
+        key = supplier_key(supplier_pib, supplier_name)
+        if key is None:
             return None
-        confidence = SUPPLIER_SINGLE_CONFIDENCE if total == 1 else SUPPLIER_MATCH_CONFIDENCE * top / total
+        rows = [r for r in self._supplier_rows(client_id, key) if r["analytic_konto"]]
+        analytics = {r["analytic_konto"] for r in rows}
+        if len(rows) < SUPPLIER_MIN_CONFIRMATIONS or len(analytics) != 1:
+            return None
+        analytic = analytics.pop()
+        if not analytic.startswith(konto):
+            return None  # never suggest an analytic account below a different synthetic account
         return HistoryMatch(
             konto=analytic,
-            confidence=round(confidence, 3),
-            explanation=(f"Stavke ovog dobavljača na kontu {konto} su ranije potvrđene na analitički konto "
-                         f"{analytic} ({top} od {total} potvrda)."),
+            confidence=SUPPLIER_MATCH_CONFIDENCE,
+            explanation=(f"Sve potvrđene stavke ovog dobavljača ({len(rows)}) su na analitičkom kontu {analytic}."),
         )
+
+    def lookup_analytic(
+        self, client_id: str, item_name: str, supplier_pib: str | None, supplier_name: str | None, konto: str
+    ) -> HistoryMatch | None:
+        return (self.lookup_analytic_item(client_id, item_name, supplier_pib, supplier_name, konto)
+                or self.lookup_analytic_supplier(client_id, supplier_pib, supplier_name, konto))
 
 
 def _to_record(row: sqlite3.Row) -> HistoryRecord:

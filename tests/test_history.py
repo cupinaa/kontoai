@@ -1,3 +1,5 @@
+import pytest
+
 from app.history import HistoryStore
 from app.models import Source
 
@@ -5,11 +7,43 @@ from app.models import Source
 def test_same_item_is_matched_with_high_confidence(history: HistoryStore):
     history.add(client_id="c1", item_name="Servis kombija", konto="532", supplier_pib="301000001")
 
-    match = history.lookup("c1", "  SERVIS kombija ", supplier_pib=None, supplier_name=None)
+    match = history.lookup_item("c1", "  SERVIS kombija ", supplier_pib="301000001", supplier_name=None)
 
     assert match is not None
     assert match.konto == "532"
     assert match.confidence >= 0.9
+
+
+def test_item_history_requires_the_same_supplier(history: HistoryStore):
+    history.add(client_id="c1", item_name="Servis kombija", konto="532", supplier_pib="301000001")
+    assert history.lookup_item("c1", "Servis kombija", supplier_pib="999999999", supplier_name=None) is None
+    assert history.lookup_item("c1", "Servis kombija", supplier_pib=None, supplier_name=None) is None
+
+
+def test_similar_description_of_the_same_supplier_is_matched(history: HistoryStore):
+    history.add(client_id="c1", item_name="Zakup poslovnog prostora za novembar 2026", konto="533",
+                supplier_pib="203000033")
+    match = history.lookup_item("c1", "Zakup poslovnog prostora za decembar 2026", "203000033", None)
+    assert match is not None and match.konto == "533"
+    assert match.confidence == 0.90 and "Slična stavka" in match.explanation
+    # a different kind of rent from the same landlord is NOT similar
+    assert history.lookup_item("c1", "Zakup magacinskog prostora za gotove proizvode", "203000033", None) is None
+
+
+@pytest.mark.parametrize(
+    "a, b, similar",
+    [
+        ("Brašno T-500 25kg", "Brašno T-400 25kg", True),
+        ("Internet 500 Mbps - oktobar", "Internet 500 Mbps - novembar", True),
+        ("Zakup poslovnog prostora", "Zakup magacinskog prostora", False),
+        ("Električna energija - refakturisanje", "Zakup magacinskog prostora za gotove proizvode", False),
+        ("Usluga", "Usluga hostinga", False),
+    ],
+)
+def test_similarity(a, b, similar):
+    from app.history import SIMILARITY_THRESHOLD, similarity
+
+    assert (similarity(a, b) >= SIMILARITY_THRESHOLD) is similar
 
 
 def test_supplier_match_when_item_is_new(history: HistoryStore):
@@ -26,8 +60,22 @@ def test_supplier_match_when_item_is_new(history: HistoryStore):
 
 def test_supplier_match_by_name_without_pib(history: HistoryStore):
     history.add(client_id="c1", item_name="Brašno", konto="101", supplier_name="Mlin Žito DOO")
-    match = history.lookup("c1", "Kukuruzno brašno", supplier_pib=None, supplier_name="MLIN ZITO doo")
+    history.add(client_id="c1", item_name="Kvasac", konto="101", supplier_name="Mlin Žito DOO")
+    match = history.lookup_supplier("c1", supplier_pib=None, supplier_name="MLIN ZITO doo")
     assert match is not None and match.konto == "101"
+
+
+def test_single_supplier_confirmation_is_not_enough(history: HistoryStore):
+    history.add(client_id="c1", item_name="Zakup magacina", konto="533", supplier_pib="203000033")
+    assert history.lookup_supplier("c1", "203000033", None) is None
+
+
+def test_supplier_ever_on_two_accounts_is_never_used(history: HistoryStore):
+    for name in ("Zakup 1", "Zakup 2", "Zakup 3"):
+        history.add(client_id="c1", item_name=name, konto="533", supplier_pib="203000033")
+    history.add(client_id="c1", item_name="Struja", konto="513", supplier_pib="203000033")
+    # 3 of 4 on 533 is not enough: once a supplier is seen on two accounts, supplier history is off
+    assert history.lookup_supplier("c1", "203000033", None) is None
 
 
 def test_inconsistent_supplier_is_not_used(history: HistoryStore):
