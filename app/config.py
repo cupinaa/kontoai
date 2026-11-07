@@ -24,6 +24,7 @@ class Settings:
     chart_path: Path
     rules_path: Path
     analytic_plan_path: Path = DATA_DIR / "analiticki_plan.json"
+    max_llm_calls: int | None = None  # hard cap on real LLM requests for the whole server process
 
 
 def _resolve(path_value: str) -> Path:
@@ -56,4 +57,6 @@ def get_settings() -> Settings:
         analytic_plan_path=_resolve(
             os.getenv("KONTOAI_ANALYTIC_PLAN_PATH", str(DATA_DIR / "analiticki_plan.json"))
         ),
+        max_llm_calls=int(os.environ["KONTOAI_MAX_LLM_CALLS"]) if os.getenv("KONTOAI_MAX_LLM_CALLS", "").strip()
+        else None,
     )

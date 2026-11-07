@@ -15,9 +15,11 @@ from app.rules import RuleEngine
 def build_llm(settings: Settings) -> LLMProvider | None:
     if not settings.gemini_api_key:
         return None
+    from app.llm.base import CallBudget
     from app.llm.gemini import GeminiProvider
 
-    return GeminiProvider(api_key=settings.gemini_api_key, model=settings.gemini_model)
+    budget = CallBudget(settings.max_llm_calls) if settings.max_llm_calls is not None else None
+    return GeminiProvider(api_key=settings.gemini_api_key, model=settings.gemini_model, budget=budget)
 
 
 def build_classifier(settings: Settings, llm: LLMProvider | None = None, *, use_llm: bool = True) -> Classifier:

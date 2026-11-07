@@ -39,12 +39,26 @@ def create_app(settings: Settings | None = None, llm: LLMProvider | None = None,
     def index() -> FileResponse:
         return FileResponse(STATIC_DIR / "index.html")
 
+    def llm_info() -> dict | None:
+        llm = classifier.llm
+        if llm is None:
+            return None
+        info: dict = {"provider": llm.name, "model": llm.model}
+        budget = getattr(llm, "budget", None)
+        if budget is not None:
+            info["calls_sent"] = budget.used  # every real request, retries included
+            info["max_calls"] = budget.max_calls
+        usage = getattr(llm, "usage", None)
+        if usage is not None:
+            info["usage"] = dict(usage)  # successful responses and token counts
+        return info
+
     @app.get("/health")
     def health() -> dict:
         return {
             "status": "ok",
             "version": __version__,
-            "llm": {"provider": classifier.llm.name, "model": classifier.llm.model} if classifier.llm else None,
+            "llm": llm_info(),
             "accounts": len(classifier.chart),
             "chart_verified": classifier.chart.verified,
             "review_threshold": classifier.review_threshold,
