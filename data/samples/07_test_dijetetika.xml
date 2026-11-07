@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IZMIŠLJENA FAKTURA ZA DEMONSTRACIJU. Sve firme, PIB-ovi, osobe i računi su izmišljeni. -->
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:mfin.gov.rs:srbdt:2022</cbc:CustomizationID>
+  <cbc:ID>PPM-2026-1107</cbc:ID>
+  <cbc:IssueDate>2026-11-05</cbc:IssueDate>
+  <cbc:DueDate>2026-11-20</cbc:DueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+  <cbc:DocumentCurrencyCode>RSD</cbc:DocumentCurrencyCode>
+  <cac:InvoicePeriod><cbc:DescriptionCode>35</cbc:DescriptionCode></cac:InvoicePeriod>
+  <cac:AccountingSupplierParty>
+    <cac:Party>
+      <cbc:EndpointID schemeID="9948">204000077</cbc:EndpointID>
+      <cac:PartyName><cbc:Name>Poslovni Park Morava DOO</cbc:Name></cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>Bulevar Morave 12</cbc:StreetName>
+        <cbc:CityName>Kruševac</cbc:CityName>
+        <cac:Country><cbc:IdentificationCode>RS</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>RS204000077</cbc:CompanyID>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>Poslovni Park Morava DOO</cbc:RegistrationName>
+        <cbc:CompanyID>22000077</cbc:CompanyID>
+      </cac:PartyLegalEntity>
+      <cac:Contact><cbc:Name>Jelena Ristić</cbc:Name><cbc:ElectronicMail>fakture@ppmorava.example</cbc:ElectronicMail></cac:Contact>
+    </cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty>
+    <cac:Party>
+      <cbc:EndpointID schemeID="9948">110000010</cbc:EndpointID>
+      <cac:PartyName><cbc:Name>Dijeta Prima DOO</cbc:Name></cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>Industrijska 7</cbc:StreetName>
+        <cbc:CityName>Šabac</cbc:CityName>
+        <cac:Country><cbc:IdentificationCode>RS</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>RS110000010</cbc:CompanyID>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>Dijeta Prima DOO</cbc:RegistrationName>
+        <cbc:CompanyID>21000010</cbc:CompanyID>
+      </cac:PartyLegalEntity>
+      <cac:Contact><cbc:Name>Ivana Kostić</cbc:Name></cac:Contact>
+    </cac:Party>
+  </cac:AccountingCustomerParty>
+  <cac:PaymentMeans>
+    <cbc:PaymentMeansCode>30</cbc:PaymentMeansCode>
+    <cac:PayeeFinancialAccount><cbc:ID>160-0000001107007-77</cbc:ID></cac:PayeeFinancialAccount>
+  </cac:PaymentMeans>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="RSD">44348.00</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="RSD">221740.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="RSD">44348.00</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="RSD">221740.00</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="RSD">221740.00</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="RSD">266088.00</cbc:TaxInclusiveAmount>
+    <cbc:PayableAmount currencyID="RSD">266088.00</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="C62">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">18640.00</cbc:LineExtensionAmount>
+    <cbc:AccountingCost>513</cbc:AccountingCost>
+    <cac:Item>
+      <cbc:Name>Električna energija za oktobar 2026</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0001</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">18640.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>2</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="MON">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">142000.00</cbc:LineExtensionAmount>
+    <cbc:AccountingCost>533</cbc:AccountingCost>
+    <cac:Item>
+      <cbc:Name>Zakup poslovnog prostora za novembar 2026</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0002</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">142000.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>3</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="C62">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">7350.00</cbc:LineExtensionAmount>
+    <cbc:AccountingCost>531</cbc:AccountingCost>
+    <cac:Item>
+      <cbc:Name>Poštanske usluge - slanje paketa kupcima</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0003</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">7350.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>4</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="C62">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">36000.00</cbc:LineExtensionAmount>
+    <cbc:AccountingCost>550</cbc:AccountingCost>
+    <cac:Item>
+      <cbc:Name>Advokatske usluge - izrada ugovora o distribuciji</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0004</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">36000.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>5</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="C62">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">8900.00</cbc:LineExtensionAmount>
+    <cbc:AccountingCost>551</cbc:AccountingCost>
+    <cac:Item>
+      <cbc:Name>Poslovni ručak sa klijentima</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0005</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">8900.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>6</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="C62">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">2450.00</cbc:LineExtensionAmount>
+    <cbc:AccountingCost>559</cbc:AccountingCost>
+    <cac:Item>
+      <cbc:Name>Provizija banke za platni promet</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0006</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">2450.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>7</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">10</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">6400.00</cbc:LineExtensionAmount>
+    <cbc:AccountingCost>539</cbc:AccountingCost>
+    <cac:Item>
+      <cbc:Name>Zaštitne maske i rukavice za proizvodnju</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0007</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">640.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+</Invoice>

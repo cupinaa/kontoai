@@ -140,6 +140,26 @@ INVOICES = [
             Line("Zakup parking mesta", 2, "MON", 6000.00, accounting_cost="539"),
         ],
     ),
+    (
+        # Manual test for K001, modelled on the accountant's own items (data/eval/knjigovodja.json).
+        # Line 6 is a deliberate mismatch: Iris says 559, the bank-fee rule (and the accountant) say 553.
+        "07_test_dijetetika.xml",
+        "PPM-2026-1107",
+        "2026-11-05",
+        Company("Poslovni Park Morava DOO", "204000077", "22000077", "Bulevar Morave 12", "Kruševac",
+                "Jelena Ristić", "fakture@ppmorava.example"),
+        Company("Dijeta Prima DOO", "110000010", "21000010", "Industrijska 7", "Šabac", "Ivana Kostić"),
+        "160-0000001107007-77",
+        [
+            Line("Električna energija za oktobar 2026", 1, "C62", 18640.00, accounting_cost="513"),
+            Line("Zakup poslovnog prostora za novembar 2026", 1, "MON", 142000.00, accounting_cost="533"),
+            Line("Poštanske usluge - slanje paketa kupcima", 1, "C62", 7350.00, accounting_cost="531"),
+            Line("Advokatske usluge - izrada ugovora o distribuciji", 1, "C62", 36000.00, accounting_cost="550"),
+            Line("Poslovni ručak sa klijentima", 1, "C62", 8900.00, accounting_cost="551"),
+            Line("Provizija banke za platni promet", 1, "C62", 2450.00, accounting_cost="559"),
+            Line("Zaštitne maske i rukavice za proizvodnju", 10, "H87", 640.00, accounting_cost="539"),
+        ],
+    ),
 ]
 
 

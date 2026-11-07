@@ -203,6 +203,50 @@ def test_rules_beat_supplier_history_but_not_item_history(chart, history: Histor
     assert s3.konto == "539" and s3.source is Source.HISTORY
 
 
+def test_manual_test_invoice_07(settings, sample_bytes):
+    """Sample 07 (manual test for K001): six lines match Iris, the bank fee does not (Iris 559, rule 553)."""
+    from dataclasses import replace
+
+    from app.config import DATA_DIR
+
+    class ExpectingLLM(FakeLLM):
+        def suggest(self, request):
+            for key, konto in {"Advokatske": "550", "ručak": "551", "maske": "539"}.items():
+                if key in request.item_text:
+                    self.konto = konto
+            return super().suggest(request)
+
+    llm = ExpectingLLM()
+    client = TestClient(create_app(replace(settings, analytic_plan_path=DATA_DIR / "analiticki_plan.json"), llm=llm))
+
+    def upload():
+        return client.post(
+            "/invoices/xml",
+            files={"file": ("07.xml", sample_bytes("07_test_dijetetika.xml"), "application/xml")},
+            data={"client_activity": "proizvodnja dijetetskih proizvoda", "client_id": CLIENT},
+        ).json()["items"]
+
+    items = upload()
+    assert len(items) == 7
+    checks = [r["suggestion"]["given_check"] for r in items]
+    assert checks == ["match", "match", "match", "match", "match", "mismatch", "match"]
+    bank = items[5]["suggestion"]
+    assert bank["given_konto"] == "559" and bank["konto"] == "553" and bank["needs_review"] is True
+    assert bank["analytic"]["options"] == []  # nothing below Iris' 559 in the plan
+    assert items[0]["suggestion"]["analytic"]["konto"] == "5133"  # electricity: only option
+    assert len(llm.requests) == 3 and len(llm.analytic_requests) == 4
+
+    # Confirm the office rent with 5330, then upload again: it comes from history.
+    rent = items[1]
+    client.post("/confirm", json={
+        "client_id": CLIENT, "item_name": rent["item"]["name"], "konto": "533", "analytic_konto": "5330",
+        "supplier_name": rent["item"]["supplier_name"], "supplier_pib": rent["item"]["supplier_pib"],
+    })
+    again = upload()
+    assert again[1]["suggestion"]["analytic"]["konto"] == "5330"
+    assert again[1]["suggestion"]["analytic"]["source"] == "history"
+
+
 def test_demo_replay_sample_06_learning_without_spreading(settings, sample_bytes):
     """Exactly the demo of 2026-11-07: upload 06 for K001, confirm 5331 on row 2, upload again.
 
