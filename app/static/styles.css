@@ -147,8 +147,14 @@ table.items { width: 100%; border-collapse: collapse; font-size: 14px; }
 .meter > i { display: block; height: 100%; background: var(--ok); }
 .meter.low > i { background: var(--warn); }
 
-.decide { display: flex; gap: 6px; align-items: center; }
+.decide { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .decide select { max-width: 220px; padding: 6px 8px; font-size: 13px; }
+.decide select:disabled { color: var(--muted); background: var(--surface-2); }
+.analytic-info { margin-top: 6px; max-width: 360px; }
+.analytic-info .muted { margin-top: 2px; }
+.src-input { background: var(--surface-2); color: var(--text); }
+.src-only_option { background: var(--accent-soft); color: var(--accent); }
+.plan-note { margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
 .confirmed { color: var(--ok); font-weight: 600; }
 
 .footer { padding-bottom: 28px; }

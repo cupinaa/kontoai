@@ -1,9 +1,10 @@
 "use strict";
 
-const SOURCE_LABELS = { history: "Istorija", rule: "Pravilo", llm: "LLM", none: "—" };
+const SOURCE_LABELS = { history: "Istorija", rule: "Pravilo", llm: "LLM", input: "Ulaz", none: "—" };
+const ANALYTIC_LABELS = { history: "Istorija", only_option: "Jedina opcija", llm: "LLM", none: "Bira knjigovođa" };
 const $ = (id) => document.getElementById(id);
 
-const state = { accounts: [], clientId: null, threshold: 0.75 };
+const state = { accounts: [], clientId: null, threshold: 0.75, plan: [], planStatus: null };
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -49,11 +50,39 @@ async function init() {
   }
 }
 
+async function loadPlan(clientId) {
+  try {
+    const plan = await api(`/analytic-plan/${encodeURIComponent(clientId)}`);
+    state.plan = plan.accounts;
+    state.planStatus = plan.status;
+  } catch (err) {
+    state.plan = [];
+    state.planStatus = null;
+  }
+  const note = $("plan-note");
+  note.hidden = !state.plan.length;
+  if (state.plan.length) {
+    note.textContent = state.planStatus === "probni"
+      ? `Analitički plan klijenta (${state.plan.length} konta) je PROBNI — biće zamenjen izvozom iz knjigovodstvenog programa.`
+      : `Analitički plan klijenta: ${state.plan.length} konta.`;
+  }
+}
+
 function accountOptions(selected) {
   const placeholder = selected ? "" : '<option value="" selected disabled>Izaberi konto…</option>';
   return placeholder + state.accounts
     .map((a) => `<option value="${esc(a.konto)}"${a.konto === selected ? " selected" : ""}>${esc(a.konto)} — ${esc(a.naziv)}</option>`)
     .join("");
+}
+
+function analyticOptions(sintetika, selected) {
+  const options = state.plan.filter((a) => a.sintetika === sintetika);
+  if (!options.length) return { html: '<option value="">Nema analitike ispod ovog konta</option>', count: 0 };
+  const placeholder = `<option value=""${selected ? "" : " selected"}>Izaberi analitiku…</option>`;
+  const html = placeholder + options
+    .map((a) => `<option value="${esc(a.konto)}"${a.konto === selected ? " selected" : ""}>${esc(a.konto)} — ${esc(a.naziv)}</option>`)
+    .join("");
+  return { html, count: options.length };
 }
 
 function renderMeta(data) {
@@ -69,11 +98,25 @@ function renderMeta(data) {
   $("invoice-meta").innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
 
   const total = data.items.length;
-  const auto = data.items.filter((r) => !r.suggestion.needs_review).length;
+  const auto = total - data.needs_review_count;
   $("stats").innerHTML = `
     <div class="stat"><b>${total}</b><span>stavki</span></div>
     <div class="stat"><b>${auto}</b><span>bez provere</span></div>
     <div class="stat"><b>${data.needs_review_count}</b><span>za proveru</span></div>`;
+}
+
+function confidenceCell(confidence) {
+  const pct = Math.round(confidence * 100);
+  return `${pct}%<div class="meter${confidence < state.threshold ? " low" : ""}"><i style="width:${pct}%"></i></div>`;
+}
+
+function analyticInfo(a) {
+  if (!a) return "";
+  const label = ANALYTIC_LABELS[a.source] || a.source;
+  const pct = Math.round(a.confidence * 100);
+  const review = a.needs_review ? ' <span class="pill pill-warn">Proveriti</span>' : "";
+  return `<div class="analytic-info small"><span class="pill src-${esc(a.source)}">${esc(label)}</span>` +
+    `${a.konto ? ` ${pct}%` : ""}${review}<div class="muted">${esc(a.explanation)}</div></div>`;
 }
 
 function renderItems(data) {
@@ -82,41 +125,67 @@ function renderItems(data) {
   tbody.innerHTML = "";
   data.items.forEach((result, index) => {
     const { item, suggestion: s } = result;
-    const pct = Math.round(s.confidence * 100);
+    const a = s.analytic;
     const tr = document.createElement("tr");
-    if (s.needs_review) tr.classList.add("review");
+    if (s.needs_review || (a && a.needs_review)) tr.classList.add("review");
     const qty = item.quantity != null ? `${item.quantity} ${item.unit || ""}`.trim() : "";
+    const proposal = s.konto
+      ? `<span class="konto">${esc(s.konto)}${a && a.konto ? " → " + esc(a.konto) : ""}</span>` +
+        `<span class="konto-name">${esc(a && a.naziv ? a.naziv : s.konto_name)}</span>`
+      : '<span class="muted">nema predloga</span>';
     tr.innerHTML = `
       <td>${index + 1}</td>
       <td><div class="item-name">${esc(item.name)}</div>${qty ? `<div class="muted small">${esc(qty)}</div>` : ""}</td>
       <td class="num">${esc(money(item.amount, currency))}</td>
-      <td>${s.konto ? `<span class="konto">${esc(s.konto)}</span><span class="konto-name">${esc(s.konto_name)}</span>` : '<span class="muted">nema predloga</span>'}</td>
+      <td>${proposal}</td>
       <td><span class="pill src-${esc(s.source)}">${esc(SOURCE_LABELS[s.source] || s.source)}</span>
           ${s.needs_review ? '<div><span class="pill pill-warn" style="margin-top:6px">Proveriti</span></div>' : ""}</td>
-      <td class="num">${pct}%<div class="meter${s.confidence < state.threshold ? " low" : ""}"><i style="width:${pct}%"></i></div></td>
+      <td class="num">${confidenceCell(s.confidence)}</td>
       <td class="explanation">${esc(s.explanation)}</td>
       <td class="decide-cell"></td>`;
 
     const cell = tr.querySelector(".decide-cell");
+    const usesPlan = state.plan.length > 0;
     cell.innerHTML = `<div class="decide">
-        <select aria-label="Konto za stavku ${index + 1}">${accountOptions(s.konto)}</select>
-        <button type="button" class="btn btn-sm">${s.konto ? "Potvrdi" : "Sačuvaj"}</button>
-      </div>`;
-    const select = cell.querySelector("select");
+        <select class="sel-konto" aria-label="Sintetički konto za stavku ${index + 1}">${accountOptions(s.konto)}</select>
+        ${usesPlan ? `<select class="sel-analytic" aria-label="Analitički konto za stavku ${index + 1}"></select>` : ""}
+        <button type="button" class="btn btn-sm">Potvrdi</button>
+      </div>${usesPlan ? analyticInfo(a) : ""}`;
+    const konto = cell.querySelector(".sel-konto");
+    const analytic = cell.querySelector(".sel-analytic");
     const button = cell.querySelector("button");
-    select.addEventListener("change", () => {
-      button.textContent = select.value === s.konto ? "Potvrdi" : "Ispravi";
-    });
-    button.addEventListener("click", () => confirmItem({ item, suggestion: s, select, button, cell, tr }));
+
+    const refreshAnalytic = () => {
+      if (!analytic) return;
+      const preselect = konto.value === s.konto && a ? a.konto : null;
+      const { html, count } = analyticOptions(konto.value, preselect);
+      analytic.innerHTML = html;
+      analytic.disabled = count === 0;
+    };
+    const refreshLabel = () => {
+      if (!s.konto) {
+        button.textContent = "Sačuvaj";  // nothing was suggested, so nothing can be "corrected"
+        return;
+      }
+      const changed = konto.value !== s.konto || (analytic && !analytic.disabled && analytic.value !== ((a && a.konto) || ""));
+      button.textContent = changed ? "Ispravi" : "Potvrdi";
+    };
+    refreshAnalytic();
+    refreshLabel();
+    konto.addEventListener("change", () => { refreshAnalytic(); refreshLabel(); });
+    if (analytic) analytic.addEventListener("change", refreshLabel);
+    button.addEventListener("click", () => confirmItem({ item, suggestion: s, konto, analytic, button, cell, tr }));
     tbody.appendChild(tr);
   });
 }
 
-async function confirmItem({ item, suggestion, select, button, cell, tr }) {
-  if (!select.value) {
-    select.focus();
+async function confirmItem({ item, suggestion, konto, analytic, button, cell, tr }) {
+  if (!konto.value) {
+    konto.focus();
     return;
   }
+  const a = suggestion.analytic;
+  const analyticValue = analytic && !analytic.disabled && analytic.value ? analytic.value : null;
   button.disabled = true;
   try {
     const result = await api("/confirm", {
@@ -125,17 +194,21 @@ async function confirmItem({ item, suggestion, select, button, cell, tr }) {
       body: JSON.stringify({
         client_id: state.clientId,
         item_name: item.name,
-        konto: select.value,
+        konto: konto.value,
         supplier_name: item.supplier_name,
         supplier_pib: item.supplier_pib,
         suggested_konto: suggestion.konto,
         suggested_source: suggestion.source,
+        analytic_konto: analyticValue,
+        suggested_analytic: a ? a.konto : null,
+        suggested_analytic_source: a ? a.source : null,
       }),
     });
     tr.classList.remove("review");
     tr.classList.add("done");
     const label = result.status === "corrected" ? "Ispravljeno" : "Potvrđeno";
-    cell.innerHTML = `<span class="confirmed">✓ ${label}: ${esc(result.record.konto)}</span>`;
+    const r = result.record;
+    cell.innerHTML = `<span class="confirmed">✓ ${label}: ${esc(r.konto)}${r.analytic_konto ? " → " + esc(r.analytic_konto) : ""}</span>`;
     loadHistory();
   } catch (err) {
     button.disabled = false;
@@ -153,9 +226,10 @@ async function loadHistory() {
           <td class="small">${esc(new Date(r.confirmed_at).toLocaleString("sr-Latn-RS"))}</td>
           <td>${esc(r.item_name)}</td>
           <td>${esc(r.supplier_name || "—")}</td>
-          <td><span class="konto">${esc(r.konto)}</span><span class="konto-name">${esc(r.konto_name || "")}</span></td>
-          <td>${r.suggested_konto ? esc(r.suggested_konto) + " · " + esc(SOURCE_LABELS[r.suggested_source] || "") : "—"}</td>
-          <td>${r.corrected ? '<span class="pill pill-warn">Ispravljeno</span>' : '<span class="pill pill-ok">Potvrđeno</span>'}</td>
+          <td><span class="konto">${esc(r.konto)}${r.analytic_konto ? " → " + esc(r.analytic_konto) : ""}</span>
+              <span class="konto-name">${esc(r.analytic_name || r.konto_name || "")}</span></td>
+          <td>${r.suggested_konto ? esc(r.suggested_konto) + (r.suggested_analytic ? " → " + esc(r.suggested_analytic) : "") + " · " + esc(SOURCE_LABELS[r.suggested_source] || "") : "—"}</td>
+          <td>${r.corrected || r.analytic_corrected ? '<span class="pill pill-warn">Ispravljeno</span>' : '<span class="pill pill-ok">Potvrđeno</span>'}</td>
         </tr>`).join("")
     : '<tr><td colspan="6" class="muted">Još nema potvrđenih kontiranja za ovog klijenta.</td></tr>';
 }
@@ -188,6 +262,7 @@ $("upload-form").addEventListener("submit", async (event) => {
   try {
     const data = await api("/invoices/xml", { method: "POST", body: form });
     state.clientId = data.client_id;
+    await loadPlan(data.client_id);
     renderMeta(data);
     renderItems(data);
     $("result").hidden = false;
