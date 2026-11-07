@@ -22,3 +22,28 @@ jobs:
       - name: Run tests
         # No GEMINI_API_KEY here on purpose: the LLM is mocked in every test.
         run: pytest -v
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build image
+        run: docker build -t kontoai:ci .
+
+      - name: Smoke test the container
+        run: |
+          docker run -d --name kontoai -p 8000:8000 kontoai:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health; then echo; break; fi
+            sleep 1
+          done
+          curl -fsS http://localhost:8000/health | grep -q '"status":"ok"'
+          curl -fsS -F "file=@data/samples/01_gorivo_kurirska_sluzba.xml" \
+               -F "client_activity=Kurirske usluge i dostava paketa" \
+               http://localhost:8000/invoices/xml | grep -q '"konto":"513"'
+          echo "Container is healthy and classifies a sample invoice."
+
+      - name: Container logs
+        if: always()
+        run: docker logs kontoai || true
