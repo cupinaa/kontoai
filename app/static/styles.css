@@ -125,7 +125,7 @@ table.items { width: 100%; border-collapse: collapse; font-size: 14px; }
 .items th { background: var(--surface-2); font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); white-space: nowrap; }
 .items tr:last-child td { border-bottom: 0; }
 .items .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.items tr.review td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+.items tr.review { background: color-mix(in srgb, var(--warn-soft) 60%, transparent); }
 .items tr.done { background: var(--ok-soft); }
 .item-name { font-weight: 600; }
 .explanation { max-width: 340px; color: var(--muted); }
