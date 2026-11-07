@@ -91,6 +91,8 @@ class Row:
     seconds: float
     explanation: str
     cached: bool = False
+    given: str | None = None  # 3-digit account given on input (Iris)
+    given_check: str | None = None
 
     @property
     def correct(self) -> bool:
@@ -246,6 +248,7 @@ def run(
                 amount=entry.get("amount"),
                 supplier_name=entry.get("supplier_name"),
                 supplier_pib=entry.get("supplier_pib"),
+                given_konto=entry.get("given_konto"),
             )
             ctx = ItemContext(
                 client_id=entry["client_id"], client_activity=data["clients"][entry["client_id"]], item=item
@@ -270,6 +273,8 @@ def run(
                     seconds=elapsed,
                     explanation=suggestion.explanation,
                     cached=bool(cache and cache.last_hit and suggestion.source is Source.LLM),
+                    given=suggestion.given_konto,
+                    given_check=suggestion.given_check.value if suggestion.given_check else None,
                 )
             )
             info.cache_hits += rows[-1].cached
@@ -304,6 +309,23 @@ TABLE_HEAD = [
     "| Group | Items | Correct | Accuracy | Flagged for review | Silent errors | Avg time / item |",
     "|---|---|---|---|---|---|---|",
 ]
+
+
+GIVEN_LABELS = {
+    "match": "Matches Iris",
+    "mismatch": "Does not match — review",
+    "unverified": "No own suggestion (not verified)",
+    "not_in_chart": "Iris account not in the chart",
+}
+
+
+def given_agreement(rows: list[Row]) -> dict | None:
+    """Agreement of the system's own 3-digit suggestion with given_konto (Iris), over items that have one."""
+    with_given = [r for r in rows if r.given]
+    if not with_given:
+        return None
+    counts = {k: sum(r.given_check == k for r in with_given) for k in GIVEN_LABELS}
+    return {"total": len(with_given), "counts": counts, "match_pct": pct(counts["match"], len(with_given))}
 
 
 def budget_skipped(rows: list[Row]) -> list[Row]:
@@ -353,6 +375,20 @@ def render(rows: list[Row], info: RunInfo, threshold: float) -> str:
             if group:
                 out.append(summary_row(label, group))
         out.append("")
+
+    agreement = given_agreement(rows)
+    if agreement:
+        out += [
+            "## Agreement with the given account (Iris)",
+            "",
+            f"Items with `given_konto`: {agreement['total']}. The system's own 3-digit suggestion matches it on "
+            f"**{agreement['match_pct']}** ({agreement['counts']['match']}/{agreement['total']}).",
+            "",
+            "| Result | Items |",
+            "|---|---|",
+            *[f"| {label} | {agreement['counts'][key]} |" for key, label in GIVEN_LABELS.items()],
+            "",
+        ]
 
     out += ["## By decision source", "", *TABLE_HEAD]
     for source in (Source.HISTORY, Source.RULE, Source.LLM, Source.NONE):
@@ -470,6 +506,11 @@ def main() -> None:
         if group:
             print(line(SOURCE_LABELS[source], group))
     print(f"LLM errors: {sum(r.source is Source.LLM and r.predicted is None for r in rows)}")
+    agreement = given_agreement(rows)
+    if agreement:
+        c = agreement["counts"]
+        print(f"Agreement with given_konto (Iris): {agreement['match_pct']} ({c['match']}/{agreement['total']}); "
+              f"mismatch {c['mismatch']}, unverified {c['unverified']}, not in chart {c['not_in_chart']}")
     if info.budget is not None and info.gemini is not None:
         u = info.gemini.usage
         print(f"API requests sent: {info.budget.used} of max {info.budget.max_calls}; cache hits: {info.cache_hits}")

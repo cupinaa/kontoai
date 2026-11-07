@@ -20,7 +20,11 @@ KontoAI focuses on that step:
 - **LLM only where needed.** It asks an LLM only when there is no history and the plan has several options.
 - **The accountant decides.** When it is not sure, it preselects nothing and leaves the choice to the accountant.
 
-The synthetic step (history → rules → LLM) is still available. It is used when the 3-digit account is not supplied with the item, for example for invoices coming directly from SEF.
+KontoAI also **double-checks Iris**. It always computes its own 3-digit suggestion (history → rules → LLM) and puts it next to the Iris account:
+- *"Poklapa se sa Iris-om"* when the two agree;
+- *"Ne poklapa se — proveri"* when they differ, and the item then goes to manual review.
+
+Iris stays authoritative: the analytic account is chosen below the Iris account. For invoices that come without an Iris account (directly from SEF), the system's own suggestion is used.
 
 ## How it works
 
@@ -37,8 +41,14 @@ flowchart LR
     G -- yes --> R
     G -- no --> H[Reject, flag for<br/>manual review]
     H --> R
-    A -. 3-digit account given<br/>e.g. by Iris .-> R
-    R[3-digit account] --> P{Client's analytic plan:<br/>accounts below it}
+    R[System's 3-digit suggestion] --> IC{Iris account<br/>given?}
+    A -. Iris account<br/>AccountingCost / given_konto .-> IC
+    IC -- yes --> CMP{Same as Iris?}
+    CMP -- yes --> M[Poklapa se sa Iris-om]
+    CMP -- no --> MM[Ne poklapa se - proveri<br/>manual review]
+    M --> P
+    MM --> P
+    IC -- no --> P{Client's analytic plan:<br/>accounts below Iris' account,<br/>else below the system's}
     P -- none --> X[Flag: no analytic<br/>below this account]
     P -- options --> AH{History: same item<br/>or same supplier?}
     AH -- match --> S[Analytic suggestion]
@@ -56,7 +66,18 @@ flowchart LR
 
 ### Synthetic (3-digit) account
 
-If the item already carries a 3-digit account (`given_konto`, e.g. proposed by Iris), this step is skipped and the account is used as given (`source: input`). Otherwise every item goes through the stages in order and stops at the first one that decides:
+Every item goes through the stages below in order and stops at the first one that decides. This also happens when the item already carries the Iris account.
+
+The Iris account (`given_konto`) comes either through the JSON API or from the SEF XML line's `cbc:AccountingCost`, the EN 16931 *buyer accounting reference*, BT-133. If it has four or more digits, the first three are used. The system then compares its own result with it and sets `given_check`:
+
+| `given_check` | Shown as | Manual review |
+|---|---|---|
+| `match` | *Poklapa se sa Iris-om* | no (two independent sources agree, even if the system alone was unsure) |
+| `mismatch` | *Ne poklapa se — proveri* | **yes** |
+| `unverified` | *Sistem nema predlog — nije provereno* | yes |
+| `not_in_chart` | *Iris konto nije u spisku sistema* | yes |
+
+The stages are:
 
 | # | Stage | Confidence | Notes |
 |---|---|---|---|
@@ -228,6 +249,8 @@ python scripts/evaluate.py --dry-run          # plan: calls needed and estimated
 python scripts/evaluate.py --max-calls 40     # the real run; stops sending at the limit
 ```
 
+If dataset items carry `given_konto`, the report adds **agreement with the given account (Iris)**. It shows the share of items where the system's own 3-digit suggestion matches Iris, and how many are mismatches, unverified or not in the chart. The current synthetic dataset has no Iris accounts, so this section is not in `eval_results.md` yet. It will appear once evaluation items exported from Iris are added.
+
 Successful answers are cached in `.eval_cache/`, so running the evaluation again does not spend quota on items that already have an answer. `--rpm 4` keeps a free-tier key under its limit of 5 requests per minute.
 
 ### Accountant review
@@ -283,14 +306,27 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
 Copy-Item .env.example .env     # then put your GEMINI_API_KEY into .env
-uvicorn app.main:app --reload
 ```
 
-Open http://localhost:8000 for the web page, or http://localhost:8000/docs for the interactive API docs. Without an API key the app still runs, using history, rules and the analytic plan only; unresolved items are flagged for review.
+**Safe mode, with zero LLM calls even if `.env` has a key, and a fresh temporary database:**
 
-> **Cost note:** with `GEMINI_API_KEY` set, every uploaded invoice sends real LLM requests. That is up to one request per unresolved item for the 3-digit account, plus one per item whose analytic account needs choosing. On a paid key this costs money. Leave the key empty for demos.
+```powershell
+$env:KONTOAI_DISABLE_LLM = "1"; $env:KONTOAI_DB_PATH = "$env:TEMP\kontoai_demo.db"; Remove-Item $env:KONTOAI_DB_PATH -ErrorAction SilentlyContinue; .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
 
-To try the analytic dropdown, upload a sample invoice with client ID `K001` and activity *proizvodnja dijetetskih proizvoda*. That is the client with the trial plan.
+Do not try to switch the key off with `$env:GEMINI_API_KEY = ""`. In PowerShell that *deletes* the variable, and the key from `.env` is then loaded again. `KONTOAI_DISABLE_LLM=1` is the reliable switch. The page header shows *"LLM nije konfigurisan"* when safe mode is on.
+
+**With Gemini** (uses the key from `.env` and the persistent `kontoai.db`):
+
+```powershell
+Remove-Item Env:KONTOAI_DISABLE_LLM, Env:KONTOAI_DB_PATH -ErrorAction SilentlyContinue; .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+> **Cost note:** with Gemini enabled, every uploaded invoice sends real LLM requests. That is up to one request per item that history and rules do not resolve, plus one per item whose analytic account needs choosing. Items with an Iris account are checked too. On a paid key this costs money, so use safe mode for demos.
+
+Open http://127.0.0.1:8000 for the web page, or http://127.0.0.1:8000/docs for the interactive API docs.
+
+To try the Iris check and the analytic dropdown, upload `data/samples/06_iris_provera_dijetetika.xml` with client ID `K001` and activity *proizvodnja dijetetskih proizvoda*. That is the client with the trial plan.
 
 Tests and evaluation:
 
@@ -315,7 +351,7 @@ The SQLite history is stored in the `/data` volume.
 | GET | `/health` | Status, configured LLM, number of accounts |
 | GET | `/accounts` | Allowed chart of accounts |
 | POST | `/invoices/xml` | Multipart upload of a SEF XML (`file`, `client_activity`, optional `client_id`; defaults to the buyer's PIB) |
-| POST | `/invoices` | The same, with items as JSON; an item may carry `given_konto` (3-digit account already chosen, e.g. by Iris) |
+| POST | `/invoices` | The same, with items as JSON; an item may carry `given_konto` (the 3-digit account proposed by Iris), which the system checks against its own suggestion |
 | POST | `/confirm` | Confirm or correct the account for one item, optionally with `analytic_konto`; saved to the client's history |
 | GET | `/history/{client_id}` | Confirmed postings for a client, newest first |
 | GET | `/analytic-plan/{client_id}` | The client's analytic accounts (empty if none) |
@@ -329,7 +365,12 @@ curl -X POST http://localhost:8000/invoices -H "Content-Type: application/json" 
 }'
 ```
 
-The response has `suggestion.source = "input"`. `suggestion.analytic.options` lists 5330 and 5331, with the suggested one in `suggestion.analytic.konto`. To confirm:
+The response contains these fields:
+- the system's own suggestion in `suggestion.konto` and `suggestion.source` (here the rule *zakup* → 533);
+- `suggestion.given_konto = "533"` and `suggestion.given_check = "match"`;
+- `suggestion.analytic.options`: 5330 and 5331, the analytic accounts below the Iris account, with the suggested one in `suggestion.analytic.konto`.
+
+To confirm:
 
 ```bash
 curl -X POST http://localhost:8000/confirm -H "Content-Type: application/json" -d '{
@@ -391,7 +432,7 @@ The response `status` is `confirmed` if the accountant accepted the suggestion a
 
 ## Tests
 
-`pytest` runs 151 tests covering:
+`pytest` runs 170 tests covering:
 - XML parsing, including XXE rejection;
 - rules, history and masking;
 - rejection of accounts outside the chart;
@@ -406,7 +447,13 @@ The response `status` is `confirmed` if the accountant accepted the suggestion a
   - LLM rejection and low confidence;
   - masking;
   - a migration for older databases;
-- the analytic plan importer: CSV with `;` and cp1250, XLSX by column number, a dry run.
+- the analytic plan importer: CSV with `;` and cp1250, XLSX by column number, a dry run;
+- the Iris check:
+  - match, mismatch, unverified and not-in-chart cases;
+  - the analytic account chosen below the Iris account;
+  - `AccountingCost` parsing;
+  - the agreement metric in the evaluation;
+- safe mode (`KONTOAI_DISABLE_LLM` wins over any key, including one from `.env`).
 
 Gemini is mocked everywhere. The tests need neither internet access nor an API key, and a fixture fails any test that tries to create a real client.
 

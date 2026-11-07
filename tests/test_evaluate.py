@@ -69,6 +69,34 @@ def test_default_limit_is_40(evaluate):
     assert evaluate.DEFAULT_MAX_CALLS == 40
 
 
+def test_agreement_with_given_konto(evaluate, tmp_path, capsys):
+    dataset = tmp_path / "iris.json"
+    dataset.write_text(json.dumps({
+        "clients": {"c": "Razvoj softvera"}, "history_seed": [],
+        "items": [
+            {"id": 1, "client_id": "c", "name": "Zakup poslovnog prostora", "given_konto": "533", "expected_konto": "533"},
+            {"id": 2, "client_id": "c", "name": "Evrodizel", "given_konto": "513", "expected_konto": "513"},
+            {"id": 3, "client_id": "c", "name": "Zakup parking mesta", "given_konto": "539", "expected_konto": "533"},
+            {"id": 4, "client_id": "c", "name": "Nešto nejasno", "given_konto": "539", "expected_konto": "539"},
+            {"id": 5, "client_id": "c", "name": "Toner HP 85A", "expected_konto": "512"},
+        ],
+    }), encoding="utf-8")
+    rows, info = evaluate.run(dataset, use_llm=False, rpm=None, use_cache=False)
+    agreement = evaluate.given_agreement(rows)
+    assert agreement["total"] == 4
+    assert agreement["counts"] == {"match": 2, "mismatch": 1, "unverified": 1, "not_in_chart": 0}
+    assert agreement["match_pct"] == "50.0%"
+    report = evaluate.render(rows, info, 0.75)
+    assert "## Agreement with the given account (Iris)" in report
+    assert "matches it on **50.0%** (2/4)" in report
+
+
+def test_no_agreement_section_without_given_konto(evaluate):
+    rows, info = evaluate.run(DATA_DIR / "eval" / "dataset.json", use_llm=False, rpm=None, use_cache=False)
+    assert evaluate.given_agreement(rows) is None
+    assert "Agreement with the given account" not in evaluate.render(rows, info, 0.75)
+
+
 def test_estimated_cost(evaluate):
     usage = {"prompt_tokens": 42_202, "output_tokens": 2_741, "thinking_tokens": 21_558}
     assert round(evaluate.estimated_cost("gemini-3.6-flash", usage), 3) == 0.123

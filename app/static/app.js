@@ -2,6 +2,12 @@
 
 const SOURCE_LABELS = { history: "Istorija", rule: "Pravilo", llm: "LLM", input: "Ulaz", none: "—" };
 const ANALYTIC_LABELS = { history: "Istorija", only_option: "Jedina opcija", llm: "LLM", none: "Bira knjigovođa" };
+const GIVEN_LABELS = {
+  match: ["Poklapa se sa Iris-om", "pill-ok"],
+  mismatch: ["Ne poklapa se — proveri", "pill-warn"],
+  unverified: ["Sistem nema predlog — nije provereno", "pill-muted"],
+  not_in_chart: ["Iris konto nije u spisku sistema", "pill-warn"],
+};
 const $ = (id) => document.getElementById(id);
 
 const state = { accounts: [], clientId: null, threshold: 0.75, plan: [], planStatus: null };
@@ -129,10 +135,26 @@ function renderItems(data) {
     const tr = document.createElement("tr");
     if (s.needs_review || (a && a.needs_review)) tr.classList.add("review");
     const qty = item.quantity != null ? `${item.quantity} ${item.unit || ""}`.trim() : "";
-    const proposal = s.konto
-      ? `<span class="konto">${esc(s.konto)}${a && a.konto ? " → " + esc(a.konto) : ""}</span>` +
-        `<span class="konto-name">${esc(a && a.naziv ? a.naziv : s.konto_name)}</span>`
-      : '<span class="muted">nema predloga</span>';
+    // The account preselected for posting: Iris' account when given (authoritative), else the system's.
+    const base = s.given_konto || s.konto;
+    let proposal;
+    if (s.given_konto) {
+      const [label, cls] = GIVEN_LABELS[s.given_check] || ["", "pill-muted"];
+      proposal = `<div class="iris-check">
+          <div class="iris-row"><span class="iris-tag">Iris</span>
+            <span class="konto">${esc(s.given_konto)}${a && a.konto ? " → " + esc(a.konto) : ""}</span>
+            <span class="konto-name">${esc(a && a.naziv ? a.naziv : (s.given_konto_name || ""))}</span></div>
+          <div class="iris-row"><span class="iris-tag">Sistem</span>
+            <span class="konto">${esc(s.konto || "—")}</span>
+            <span class="konto-name">${esc(s.konto_name || "nema predloga")}</span></div>
+          <span class="pill ${cls}">${esc(label)}</span>
+        </div>`;
+    } else if (s.konto) {
+      proposal = `<span class="konto">${esc(s.konto)}${a && a.konto ? " → " + esc(a.konto) : ""}</span>` +
+        `<span class="konto-name">${esc(a && a.naziv ? a.naziv : s.konto_name)}</span>`;
+    } else {
+      proposal = '<span class="muted">nema predloga</span>';
+    }
     tr.innerHTML = `
       <td>${index + 1}</td>
       <td><div class="item-name">${esc(item.name)}</div>${qty ? `<div class="muted small">${esc(qty)}</div>` : ""}</td>
@@ -147,7 +169,7 @@ function renderItems(data) {
     const cell = tr.querySelector(".decide-cell");
     const usesPlan = state.plan.length > 0;
     cell.innerHTML = `<div class="decide">
-        <select class="sel-konto" aria-label="Sintetički konto za stavku ${index + 1}">${accountOptions(s.konto)}</select>
+        <select class="sel-konto" aria-label="Sintetički konto za stavku ${index + 1}">${accountOptions(base)}</select>
         ${usesPlan ? `<select class="sel-analytic" aria-label="Analitički konto za stavku ${index + 1}"></select>` : ""}
         <button type="button" class="btn btn-sm">Potvrdi</button>
       </div>${usesPlan ? analyticInfo(a) : ""}`;
@@ -157,17 +179,17 @@ function renderItems(data) {
 
     const refreshAnalytic = () => {
       if (!analytic) return;
-      const preselect = konto.value === s.konto && a ? a.konto : null;
+      const preselect = konto.value === base && a ? a.konto : null;
       const { html, count } = analyticOptions(konto.value, preselect);
       analytic.innerHTML = html;
       analytic.disabled = count === 0;
     };
     const refreshLabel = () => {
-      if (!s.konto) {
+      if (!base) {
         button.textContent = "Sačuvaj";  // nothing was suggested, so nothing can be "corrected"
         return;
       }
-      const changed = konto.value !== s.konto || (analytic && !analytic.disabled && analytic.value !== ((a && a.konto) || ""));
+      const changed = konto.value !== base || (analytic && !analytic.disabled && analytic.value !== ((a && a.konto) || ""));
       button.textContent = changed ? "Ispravi" : "Potvrdi";
     };
     refreshAnalytic();
@@ -197,8 +219,9 @@ async function confirmItem({ item, suggestion, konto, analytic, button, cell, tr
         konto: konto.value,
         supplier_name: item.supplier_name,
         supplier_pib: item.supplier_pib,
-        suggested_konto: suggestion.konto,
-        suggested_source: suggestion.source,
+        // What was preselected: Iris' account when given, otherwise the system's suggestion.
+        suggested_konto: suggestion.given_konto || suggestion.konto,
+        suggested_source: suggestion.given_konto ? "input" : suggestion.source,
         analytic_konto: analyticValue,
         suggested_analytic: a ? a.konto : null,
         suggested_analytic_source: a ? a.source : null,

@@ -154,6 +154,13 @@ table.items { width: 100%; border-collapse: collapse; font-size: 14px; }
 .analytic-info .muted { margin-top: 2px; }
 .src-input { background: var(--surface-2); color: var(--text); }
 .src-only_option { background: var(--accent-soft); color: var(--accent); }
+.iris-check { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 170px; }
+.iris-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
+.iris-row .konto-name { flex-basis: 100%; }
+.iris-tag {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--muted); min-width: 44px;
+}
 .plan-note { margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
 .confirmed { color: var(--ok); font-weight: 600; }
 
