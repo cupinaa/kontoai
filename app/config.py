@@ -31,10 +31,21 @@ def _resolve(path_value: str) -> Path:
     return path if path.is_absolute() else BASE_DIR / path
 
 
+def llm_disabled() -> bool:
+    """KONTOAI_DISABLE_LLM=1 forces safe mode (no LLM calls).
+
+    Needed because in PowerShell `$env:GEMINI_API_KEY = ""` deletes the variable instead of
+    emptying it, after which the key from .env would be loaded again.
+    """
+    return os.getenv("KONTOAI_DISABLE_LLM", "").strip().lower() in ("1", "true", "yes", "da")
+
+
 def get_settings() -> Settings:
     """Build settings from the environment. `.env` never overrides real environment variables."""
     load_dotenv(BASE_DIR / ".env", override=False)
     api_key = os.getenv("GEMINI_API_KEY", "").strip() or None
+    if llm_disabled():
+        api_key = None  # safe mode: never call the LLM, even if .env contains a key
     return Settings(
         gemini_api_key=api_key,
         gemini_model=os.getenv("GEMINI_MODEL", "").strip() or DEFAULT_MODEL,
