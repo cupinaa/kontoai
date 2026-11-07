@@ -1,0 +1,158 @@
+{
+  "_napomena": "NIJE VERIFIKOVANO: Ovaj spisak je pripremljen radi demonstracije i MORA ga pregledati i potvrditi ovlašćeni knjigovođa pre bilo kakve upotrebe u praksi. Sadrži samo izbor trocifrenih računa relevantnih za ulazne fakture. Opisi ('opis') su pomoćna objašnjenja za model, a ne tekst pravilnika.",
+  "_note": "NOT VERIFIED: This list is a demonstration subset and MUST be reviewed by a licensed accountant before real use.",
+  "izvor": "Pravilnik o kontnom okviru i sadržini računa u kontnom okviru za privredna društva, zadruge i preduzetnike (\"Sl. glasnik RS\", br. 89/2020)",
+  "verifikovano": false,
+  "konta": [
+    {
+      "konto": "023",
+      "naziv": "Postrojenja i oprema",
+      "klasa": "0",
+      "opis": "Nabavka opreme koja se koristi duže od godinu dana i predstavlja osnovno sredstvo prema računovodstvenoj politici (računari, laptopovi, mašine, vozila, nameštaj veće vrednosti)."
+    },
+    {
+      "konto": "101",
+      "naziv": "Materijal",
+      "klasa": "1",
+      "opis": "Zalihe materijala za proizvodnju ili pružanje usluga (sirovine, osnovni i pomoćni materijal) koje se vode na zalihama pre utroška."
+    },
+    {
+      "konto": "102",
+      "naziv": "Rezervni delovi",
+      "klasa": "1",
+      "opis": "Zalihe rezervnih delova pre ugradnje."
+    },
+    {
+      "konto": "103",
+      "naziv": "Alat i inventar",
+      "klasa": "1",
+      "opis": "Alat i sitan inventar (kraći vek upotrebe ili manja vrednost od praga za osnovna sredstva)."
+    },
+    {
+      "konto": "132",
+      "naziv": "Roba u prometu na veliko",
+      "klasa": "1",
+      "opis": "Roba nabavljena radi dalje prodaje u veleprodaji."
+    },
+    {
+      "konto": "134",
+      "naziv": "Roba u prometu na malo",
+      "klasa": "1",
+      "opis": "Roba nabavljena radi dalje prodaje u maloprodaji (prodavnice, marketi, benzinske stanice)."
+    },
+    {
+      "konto": "511",
+      "naziv": "Troškovi materijala za izradu",
+      "klasa": "5",
+      "opis": "Materijal koji se direktno troši u proizvodnji, kada se knjiži direktno na trošak."
+    },
+    {
+      "konto": "512",
+      "naziv": "Troškovi ostalog materijala (režijskog)",
+      "klasa": "5",
+      "opis": "Kancelarijski materijal, sredstva za čišćenje i higijenu, ostali režijski materijal."
+    },
+    {
+      "konto": "513",
+      "naziv": "Troškovi goriva i energije",
+      "klasa": "5",
+      "opis": "Gorivo za vozila i mašine, električna energija, grejanje, gas."
+    },
+    {
+      "konto": "514",
+      "naziv": "Troškovi rezervnih delova",
+      "klasa": "5",
+      "opis": "Rezervni delovi utrošeni za održavanje, kada se knjiže direktno na trošak."
+    },
+    {
+      "konto": "515",
+      "naziv": "Troškovi jednokratnog otpisa alata i inventara",
+      "klasa": "5",
+      "opis": "Alat i sitan inventar koji se otpisuje odjednom pri stavljanju u upotrebu."
+    },
+    {
+      "konto": "530",
+      "naziv": "Troškovi usluga na izradi učinaka",
+      "klasa": "5",
+      "opis": "Usluge drugih lica na izradi proizvoda ili pružanju usluga (podizvođači, dorada, prerada)."
+    },
+    {
+      "konto": "531",
+      "naziv": "Troškovi transportnih usluga",
+      "klasa": "5",
+      "opis": "Prevoz robe i ljudi, kurirske i poštanske usluge, telefon, mobilna telefonija i internet (PTT usluge)."
+    },
+    {
+      "konto": "532",
+      "naziv": "Troškovi usluga održavanja",
+      "klasa": "5",
+      "opis": "Popravke i održavanje opreme, vozila, objekata i softvera od strane drugih lica."
+    },
+    {
+      "konto": "533",
+      "naziv": "Troškovi zakupnina",
+      "klasa": "5",
+      "opis": "Zakup poslovnog prostora, magacina, opreme, parking mesta."
+    },
+    {
+      "konto": "534",
+      "naziv": "Troškovi sajmova",
+      "klasa": "5",
+      "opis": "Učešće na sajmovima i izložbama."
+    },
+    {
+      "konto": "535",
+      "naziv": "Troškovi reklame i propagande",
+      "klasa": "5",
+      "opis": "Reklama, oglašavanje, marketinške kampanje, promotivni materijal."
+    },
+    {
+      "konto": "539",
+      "naziv": "Troškovi ostalih usluga",
+      "klasa": "5",
+      "opis": "Ostale proizvodne usluge koje nisu obuhvaćene prethodnim računima (komunalne usluge, hosting i slične usluge)."
+    },
+    {
+      "konto": "550",
+      "naziv": "Troškovi neproizvodnih usluga",
+      "klasa": "5",
+      "opis": "Intelektualne i savetodavne usluge: knjigovodstvo, revizija, advokati, konsultanti, obrazovanje zaposlenih."
+    },
+    {
+      "konto": "551",
+      "naziv": "Troškovi reprezentacije",
+      "klasa": "5",
+      "opis": "Ugošćavanje poslovnih partnera, poslovni ručkovi, piće i hrana za poslovne sastanke."
+    },
+    {
+      "konto": "552",
+      "naziv": "Troškovi premija osiguranja",
+      "klasa": "5",
+      "opis": "Premije osiguranja imovine, vozila, robe i lica."
+    },
+    {
+      "konto": "553",
+      "naziv": "Troškovi platnog prometa",
+      "klasa": "5",
+      "opis": "Bankarske provizije i naknade za platni promet."
+    },
+    {
+      "konto": "554",
+      "naziv": "Troškovi članarina",
+      "klasa": "5",
+      "opis": "Članarine komorama, udruženjima i strukovnim organizacijama."
+    },
+    {
+      "konto": "555",
+      "naziv": "Troškovi poreza",
+      "klasa": "5",
+      "opis": "Porezi koji terete troškove (porez na imovinu, lokalne takse i slično)."
+    },
+    {
+      "konto": "559",
+      "naziv": "Ostali nematerijalni troškovi",
+      "klasa": "5",
+      "opis": "Nematerijalni troškovi koji nisu obuhvaćeni prethodnim računima grupe 55."
+    }
+  ]
+}

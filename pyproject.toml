@@ -1,0 +1,9 @@
+[project]
+name = "kontoai"
+version = "0.1.0"
+description = "Suggests Serbian chart-of-accounts codes (kontni okvir) for incoming SEF e-invoice line items."
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

@@ -1,0 +1,86 @@
+{
+  "_napomena": "Pravila po ključnim rečima za očigledne slučajeve. Ključne reči se porede sa normalizovanim tekstom (mala slova, bez dijakritika, ćirilica preslovljena u latinicu) kao početak reči, pa 'zakup' pogađa i 'zakupnina'. Ako se poklope pravila sa različitim kontima, odluka se prepušta LLM-u.",
+  "rules": [
+    {
+      "id": "gorivo",
+      "konto": "513",
+      "confidence": 0.9,
+      "keywords": ["goriv", "evrodizel", "eurodizel", "dizel", "benzin", "bmb", "tng", "autogas", "lpg"],
+      "exclude_keywords": ["filter", "kanister", "pumpa za"],
+      "exclude_activity_keywords": ["goriv", "benzinsk", "naftnih derivata"],
+      "reason": "Gorivo za sopstvenu upotrebu knjiži se kao trošak goriva i energije."
+    },
+    {
+      "id": "energija",
+      "konto": "513",
+      "confidence": 0.9,
+      "keywords": ["elektricna energija", "elektricne energije", "struja", "struje", "toplotna energija", "toplotne energije", "grejanje", "grejanja", "prirodni gas"],
+      "exclude_keywords": [],
+      "exclude_activity_keywords": [],
+      "reason": "Električna i toplotna energija i gas knjiže se kao trošak goriva i energije."
+    },
+    {
+      "id": "zakup",
+      "konto": "533",
+      "confidence": 0.9,
+      "keywords": ["zakup", "najam", "najamnin", "iznajmljivanje"],
+      "exclude_keywords": ["lizing", "leasing"],
+      "exclude_activity_keywords": [],
+      "reason": "Zakup prostora ili opreme knjiži se kao trošak zakupnina."
+    },
+    {
+      "id": "telekomunikacije",
+      "konto": "531",
+      "confidence": 0.88,
+      "keywords": ["telefonij", "telefonsk", "internet", "mobilni saobracaj", "ptt usluge", "postanske usluge"],
+      "exclude_keywords": ["uredjaj", "aparat", "ruter"],
+      "exclude_activity_keywords": [],
+      "reason": "Telefon, internet i poštanske usluge (PTT) knjiže se u okviru troškova transportnih usluga."
+    },
+    {
+      "id": "kancelarijski_materijal",
+      "konto": "512",
+      "confidence": 0.88,
+      "keywords": ["kancelarijski materijal", "kancelarijskog materijala", "papir a4", "fotokopir papir", "toner", "kertridz", "fascikl", "registrator", "hemijska olovka", "hemijske olovke", "koverat", "koverti", "heftalic", "spajalic"],
+      "exclude_keywords": [],
+      "exclude_activity_keywords": ["kancelarijsk", "papirn"],
+      "reason": "Kancelarijski materijal knjiži se kao trošak ostalog (režijskog) materijala."
+    },
+    {
+      "id": "platni_promet",
+      "konto": "553",
+      "confidence": 0.92,
+      "keywords": ["provizija banke", "bankarska provizija", "naknada za platni promet", "troskovi platnog prometa", "provizija za platni promet"],
+      "exclude_keywords": [],
+      "exclude_activity_keywords": [],
+      "reason": "Bankarske provizije knjiže se kao troškovi platnog prometa."
+    },
+    {
+      "id": "osiguranje",
+      "konto": "552",
+      "confidence": 0.9,
+      "keywords": ["osiguranj", "polisa", "polise"],
+      "exclude_keywords": [],
+      "exclude_activity_keywords": [],
+      "reason": "Premije osiguranja knjiže se kao troškovi premija osiguranja."
+    },
+    {
+      "id": "knjigovodstvo",
+      "konto": "550",
+      "confidence": 0.9,
+      "keywords": ["knjigovodstven", "racunovodstven", "revizija finansijskih", "revizorsk"],
+      "exclude_keywords": [],
+      "exclude_activity_keywords": [],
+      "reason": "Knjigovodstvene i revizorske usluge su neproizvodne (intelektualne) usluge."
+    },
+    {
+      "id": "reklama",
+      "konto": "535",
+      "confidence": 0.88,
+      "keywords": ["reklam", "oglasavanj", "marketinska kampanja", "marketinske kampanje"],
+      "exclude_keywords": [],
+      "exclude_activity_keywords": [],
+      "reason": "Reklama i oglašavanje knjiže se kao troškovi reklame i propagande."
+    }
+  ]
+}
