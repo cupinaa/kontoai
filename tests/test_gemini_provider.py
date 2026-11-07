@@ -19,8 +19,94 @@ class FakeModels:
         return SimpleNamespace(text=self.text)
 
 
-def provider(models: FakeModels) -> GeminiProvider:
-    return GeminiProvider(api_key="unused", model="gemini-test", client=SimpleNamespace(models=models))
+def provider(models: FakeModels, sleeps: list | None = None) -> GeminiProvider:
+    return GeminiProvider(
+        api_key="unused",
+        model="gemini-test",
+        client=SimpleNamespace(models=models),
+        sleep=(sleeps.append if sleeps is not None else lambda s: None),
+    )
+
+
+class RateLimited(Exception):
+    code = 429
+
+    def __str__(self):
+        return "429 RESOURCE_EXHAUSTED. Quota exceeded. Please retry in 12.5s."
+
+
+class FlakyModels(FakeModels):
+    """Fails with 429 a number of times, then answers."""
+
+    def __init__(self, failures, text):
+        super().__init__(text=text)
+        self.failures = failures
+
+    def generate_content(self, **kwargs):
+        self.calls.append(kwargs)
+        if self.failures:
+            self.failures -= 1
+            raise RateLimited()
+        return SimpleNamespace(text=self.text)
+
+
+ANSWER = '{"konto":"101","naziv_konta":"Materijal","sigurnost":0.9,"obrazlozenje":"Sirovina."}'
+
+
+def test_retries_after_rate_limit_using_server_delay(request_):
+    sleeps = []
+    models = FlakyModels(failures=2, text=ANSWER)
+    answer = provider(models, sleeps).suggest(request_)
+    assert answer.konto == "101"
+    assert len(models.calls) == 3
+    assert sleeps == [13.5, 13.5]  # server-suggested 12.5 s + 1 s margin
+
+
+def test_gives_up_after_max_retries(request_):
+    sleeps = []
+    with pytest.raises(LLMError, match="RateLimited"):
+        provider(FlakyModels(failures=10, text=ANSWER), sleeps).suggest(request_)
+    assert len(sleeps) == 3
+
+
+def test_daily_quota_is_not_retried(request_):
+    class DailyQuota(Exception):
+        code = 429
+
+        def __str__(self):
+            return "429 RESOURCE_EXHAUSTED quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier"
+
+    sleeps = []
+    with pytest.raises(LLMError):
+        provider(FakeModels(error=DailyQuota()), sleeps).suggest(request_)
+    assert sleeps == []
+
+
+class Overloaded(Exception):
+    code = 503
+
+
+def test_transient_server_errors_use_exponential_backoff(request_):
+    class OverloadedModels(FlakyModels):
+        def generate_content(self, **kwargs):
+            self.calls.append(kwargs)
+            if self.failures:
+                self.failures -= 1
+                raise Overloaded("503 UNAVAILABLE. This model is currently experiencing high demand.")
+            return SimpleNamespace(text=self.text)
+
+    sleeps = []
+    answer = provider(OverloadedModels(failures=2, text=ANSWER), sleeps).suggest(request_)
+    assert answer.konto == "101"
+    assert sleeps == [3.0, 5.0]  # 2 s, 4 s backoff + 1 s margin
+
+
+def test_non_rate_limit_errors_are_not_retried(request_):
+    sleeps = []
+    models = FakeModels(error=ValueError("bad request"))
+    with pytest.raises(LLMError):
+        provider(models, sleeps).suggest(request_)
+    assert sleeps == [] and len(models.calls) == 1
 
 
 @pytest.fixture
