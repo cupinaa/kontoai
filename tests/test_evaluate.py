@@ -69,6 +69,12 @@ def test_default_limit_is_40(evaluate):
     assert evaluate.DEFAULT_MAX_CALLS == 40
 
 
+def test_estimated_cost(evaluate):
+    usage = {"prompt_tokens": 42_202, "output_tokens": 2_741, "thinking_tokens": 21_558}
+    assert round(evaluate.estimated_cost("gemini-3.6-flash", usage), 3) == 0.123
+    assert evaluate.estimated_cost("unknown-model", usage) is None
+
+
 def test_cache_prevents_repeat_calls(evaluate, fake_gemini):
     dataset = DATA_DIR / "eval" / "dataset.json"
     evaluate.run(dataset, use_llm=True, rpm=None, use_cache=True, max_calls=100)

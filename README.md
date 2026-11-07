@@ -103,30 +103,55 @@ Masking is pattern-based. It covers the identifiers listed above, but it cannot 
 
 Besides accuracy, the report counts **silent errors**: wrong accounts that were *not* flagged for review. This is the number that matters most. A flagged mistake costs the accountant one click, but a silent one ends up in the books.
 
-**Without the LLM** (history and rules only, the complete 50-item run in `eval_results.md`):
+### Results
+
+The run was made once, on `gemini-3.6-flash`, for all 50 items (2026-11-07, paid tier, `--max-calls 40`):
 
 | Group | Items | Correct | Flagged for review | Silent errors |
 |---|---|---|---|---|
-| Easy | 30 | 18 (60%) | 12 | 0 |
-| Hard | 20 | 0 (0%) | 20 | 0 |
-| **All** | **50** | **18 (36%)** | **32** | **0** |
+| Easy | 30 | 30 (100%) | 0 | 0 |
+| Hard | 20 | 19 (95%) | 4 | 0 |
+| **All** | **50** | **49 (98%)** | **4** | **0** |
 
-History and rules decide 18 of the 30 easy items, all correctly. They decide none of the hard items. That is the intended result: a keyword rule never caught a hard item by mistake, so every item they could not decide goes on to the LLM.
+Hard items by category:
 
-**With Gemini.** Every answer Gemini returned on the easy items was correct, but no complete run has been possible yet:
-- The free-tier API key allows 5 requests per minute and **20 requests per day per model**.
-- One full run needs 32 LLM calls (12 easy and 20 hard items).
-- On 2026-11-07 the runs on `gemini-3.6-flash` and `gemini-3.8-flash` returned 20 answers on the 12 easy LLM items, and all 20 were correct.
-- The remaining calls failed because of quota limits or temporary server errors (503/504). Those items were flagged for review, not guessed.
-- Because no run was complete, I am not publishing a Gemini accuracy number.
+| Category | Items | Correct | Flagged |
+|---|---|---|---|
+| Ambiguous description | 5 | 4 | 4 |
+| Invoice abbreviation | 4 | 4 | 0 |
+| Depends on client activity | 6 | 6 | 0 |
+| Not covered by any rule | 5 | 5 | 0 |
 
-To reproduce, set `GEMINI_API_KEY` and run:
+By decision source: history decided 6/6 items correctly, rules 12/12, and the LLM 31/32.
+
+What the numbers show, within the limits of a synthetic dataset:
+- **No silent errors.** The only wrong suggestion was flagged for review. That item was #33 *"Usluge po ugovoru za oktobar"*: the expected account was 539, Gemini proposed 530 with confidence 0.65 and explained that the description is too general.
+- **The model is uncertain where it should be.** Four of the five ambiguous items received a confidence of 0.35–0.65 and went to manual review. The exception was *"Roba po otpremnici 4471"*, which got 0.95. The answer was right, but such a vague description deserved a lower confidence.
+- **Activity-dependent items were all correct.** These items are the main reason for using an LLM here. Examples:
+  - the same laptop is a fixed asset (023) for a grocery store but goods for resale (134) for a computer shop;
+  - motor oil is goods (134) for a petrol station;
+  - the petrol station's own fuel is an expense (513).
+- **The easy 100% is true by construction.** The history and rule items were written together with the rules.
+
+API usage and cost:
+
+| | |
+|---|---|
+| API requests | 32 (limit 40; no retries, no errors) |
+| Tokens | 42,202 prompt, 2,741 output, 21,558 thinking |
+| Cost | **≈ $0.12** at $0.75 / $3.75 per 1M input / output tokens (thinking is billed as output) |
+| Latency | ~4.8 s per LLM item; under 1 ms for history and rule items |
+
+Without the LLM (history and rules only), 18 of the 50 items are decided, all correctly. The other 32 go to manual review, and there are no silent errors. No rule caught a hard item by mistake.
+
+To reproduce:
 
 ```powershell
-python scripts/evaluate.py --rpm 4    # stays under 5 requests/minute
+python scripts/evaluate.py --dry-run          # plan: calls needed and estimated tokens, sends nothing
+python scripts/evaluate.py --max-calls 40     # the real run; stops sending at the limit
 ```
 
-Successful answers are cached in `.eval_cache/`. Running the command again on another day only calls the API for the items that are still missing.
+Successful answers are cached in `.eval_cache/`, so running the evaluation again does not spend quota on items that already have an answer. `--rpm 4` keeps a free-tier key under its limit of 5 requests per minute.
 
 ## Running locally (Windows / PowerShell)
 
@@ -222,12 +247,13 @@ The response `status` is `confirmed` if the accountant accepted the suggestion a
 
 ## Tests
 
-`pytest` runs 97 tests covering:
+`pytest` runs 105 tests covering:
 - XML parsing, including XXE rejection;
 - rules, history and masking;
 - rejection of accounts outside the chart;
 - the Gemini provider against a fake SDK client, including retries on rate limits and server errors;
-- all API endpoints, including the confirm-and-learn loop.
+- all API endpoints, including the confirm-and-learn loop;
+- the evaluation script's `--max-calls` guard, cache and `--dry-run`.
 
 Gemini is mocked everywhere. The tests need neither internet access nor an API key, and a fixture fails any test that tries to create a real client.
 

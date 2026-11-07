@@ -46,6 +46,22 @@ from app.service import build_classifier  # noqa: E402
 
 DEFAULT_MAX_CALLS = 40
 
+# Paid-tier prices in USD per 1M tokens (input, output incl. thinking), from
+# https://ai.google.dev/gemini-api/docs/pricing as of 2026-11-07. Valid through 2026-12-31; check before relying on it.
+PRICES_USD_PER_1M = {
+    "gemini-3.6-flash": (0.75, 3.75),
+    "gemini-3.8-flash": (0.75, 3.75),
+    "gemini-3.5-flash-lite": (0.30, 2.50),
+}
+
+
+def estimated_cost(model: str, usage: dict) -> float | None:
+    if model not in PRICES_USD_PER_1M:
+        return None
+    price_in, price_out = PRICES_USD_PER_1M[model]
+    output = usage["output_tokens"] + usage["thinking_tokens"]
+    return (usage["prompt_tokens"] * price_in + output * price_out) / 1_000_000
+
 SOURCE_LABELS = {Source.HISTORY: "history", Source.RULE: "rules", Source.LLM: "LLM", Source.NONE: "undecided"}
 BUDGET_MARKER = "dostignut limit"  # text of CallBudgetExceeded, surfaced in the item explanation
 CATEGORY_LABELS = {
@@ -324,6 +340,9 @@ def render(rows: list[Row], info: RunInfo, threshold: float) -> str:
             f"| Output tokens | {u['output_tokens']:,} |",
             f"| Thinking tokens | {u['thinking_tokens']:,} |",
         ]
+        cost = estimated_cost(info.gemini.model, u)
+        if cost is not None:
+            out.append(f"| Estimated cost (paid tier, prices of 2026-11-07) | ${cost:.3f} |")
         skipped = budget_skipped(rows)
         if skipped:
             out += ["", f"**Stopped at the call limit:** {len(skipped)} items were not sent to the API because "
