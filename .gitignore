@@ -20,6 +20,9 @@ htmlcov/
 venv/
 env/
 
+# Evaluation LLM response cache
+.eval_cache/
+
 # Local databases
 *.db
 *.sqlite
