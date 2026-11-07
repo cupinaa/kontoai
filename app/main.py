@@ -39,6 +39,10 @@ def create_app(settings: Settings | None = None, llm: LLMProvider | None = None,
     def index() -> FileResponse:
         return FileResponse(STATIC_DIR / "index.html")
 
+    @app.get("/logo-preview", include_in_schema=False)
+    def logo_preview() -> FileResponse:
+        return FileResponse(STATIC_DIR / "logo-preview.html")
+
     def llm_info() -> dict | None:
         llm = classifier.llm
         if llm is None:

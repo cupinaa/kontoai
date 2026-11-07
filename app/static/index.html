@@ -3,110 +3,116 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KontoAI — predlog kontiranja</title>
+  <title>KontoAI</title>
+  <link rel="icon" href="/static/logo/mark-k.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="wrap topbar-inner">
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true">K</span>
-        <div>
-          <div class="brand-name">KontoAI</div>
-          <div class="brand-sub">Predlog kontiranja ulaznih faktura</div>
-        </div>
-      </div>
-      <span id="status" class="pill pill-muted">Povezivanje…</span>
-    </div>
-  </header>
+  <div class="app">
+    <aside class="sidebar">
+      <a class="brand" href="#/fakture" aria-label="KontoAI">
+        <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path d="M9 5v22" stroke="#5B6370" stroke-width="4.2" stroke-linecap="round"/>
+          <path d="M23.5 5.5 12.5 16.5l11 10" stroke="#0A7CFF" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="brand-word">konto<b>ai</b></span>
+      </a>
+      <nav class="nav">
+        <a href="#/fakture" data-page="fakture">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5M9.5 13h5M9.5 16.5h5"/></svg>
+          Fakture
+        </a>
+        <a href="#/istorija" data-page="istorija">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+          Istorija
+        </a>
+        <a href="#/kontni-plan" data-page="kontni-plan">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5h10M9 12h10M9 17.5h10"/><circle cx="5" cy="6.5" r="1"/><circle cx="5" cy="12" r="1"/><circle cx="5" cy="17.5" r="1"/></svg>
+          Kontni plan
+        </a>
+      </nav>
+    </aside>
 
-  <main class="wrap">
-    <section class="card">
-      <h1>Učitaj SEF fakturu</h1>
-      <p class="muted">UBL 2.1 XML iz Sistema e-faktura. Za svaku stavku sistem predlaže konto: prvo iz istorije klijenta, zatim po pravilima, a tek na kraju pomoću LLM-a (sa maskiranim podacima).</p>
+    <main class="main">
+      <header class="topbar">
+        <h1 id="page-title">Fakture</h1>
+        <label class="client">
+          <span class="sr-only">Klijent</span>
+          <select id="client"></select>
+        </label>
+      </header>
 
-      <form id="upload-form" class="form-grid">
+      <!-- Fakture -->
+      <section class="page" data-page="fakture">
         <label class="drop" id="drop">
-          <input type="file" id="file" name="file" accept=".xml,text/xml,application/xml" required>
-          <span class="drop-title" id="drop-title">Izaberi XML fajl</span>
-          <span class="muted small">ili ga prevuci ovde</span>
+          <input type="file" id="file" accept=".xml,text/xml,application/xml">
+          <svg class="drop-icon" viewBox="0 0 48 48" aria-hidden="true">
+            <path d="M15 6h13l9 9v25a2 2 0 0 1-2 2H15a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/>
+            <path d="M28 6v9h9M24 34V22m-5 5 5-5 5 5"/>
+          </svg>
+          <span class="drop-title" id="drop-title">Prevucite fakturu ili izaberite fajl</span>
+          <span class="drop-sub">SEF XML</span>
         </label>
 
-        <div class="field">
-          <label for="activity">Delatnost klijenta</label>
-          <input id="activity" name="client_activity" list="activity-examples" required minlength="2"
-                 placeholder="npr. Kurirske usluge i dostava paketa">
-          <datalist id="activity-examples">
-            <option value="Kurirske usluge i dostava paketa">
-            <option value="Razvoj softvera po narudžbini">
-            <option value="Maloprodaja prehrambenih proizvoda">
-            <option value="Proizvodnja hleba i peciva">
-            <option value="Trgovina na malo motornim gorivima">
-          </datalist>
+        <div id="result" hidden>
+          <article class="invoice">
+            <div>
+              <div class="invoice-supplier" id="inv-supplier"></div>
+              <div class="invoice-meta" id="inv-meta"></div>
+            </div>
+            <div class="invoice-total">
+              <div class="invoice-amount" id="inv-total"></div>
+              <div class="invoice-meta">bez PDV-a</div>
+            </div>
+            <button class="btn-ghost" id="new-invoice" type="button">Nova faktura</button>
+          </article>
+
+          <div class="toolbar">
+            <span class="muted" id="item-count"></span>
+            <button class="btn-primary" id="confirm-all" type="button">Potvrdi sve usklađene</button>
+          </div>
+
+          <div class="table-card">
+            <table class="items">
+              <thead>
+                <tr><th>Opis</th><th class="num">Iznos</th><th>Konto</th><th>Analitika</th><th class="col-action"><span class="sr-only">Potvrda</span></th></tr>
+              </thead>
+              <tbody id="items"></tbody>
+            </table>
+          </div>
         </div>
+      </section>
 
-        <div class="field">
-          <label for="client-id">ID klijenta <span class="muted">(opciono)</span></label>
-          <input id="client-id" name="client_id" placeholder="podrazumevano: PIB kupca sa fakture">
+      <!-- Istorija -->
+      <section class="page" data-page="istorija" hidden>
+        <div class="table-card">
+          <table class="items">
+            <thead><tr><th>Datum</th><th>Stavka</th><th>Dobavljač</th><th>Konto</th><th>Analitika</th><th class="col-action"></th></tr></thead>
+            <tbody id="history-rows"></tbody>
+          </table>
         </div>
+      </section>
 
-        <div class="actions">
-          <button type="submit" class="btn btn-primary" id="submit">Predloži kontiranje</button>
-        </div>
-      </form>
-      <div id="error" class="alert" hidden></div>
-    </section>
+      <!-- Kontni plan -->
+      <section class="page" data-page="kontni-plan" hidden>
+        <p class="quiet" id="plan-note" hidden>Probni plan — biće zamenjen izvozom iz Iris-a.</p>
+        <div id="plan"></div>
+      </section>
+    </main>
 
-    <section id="result" class="card" hidden>
-      <div class="result-head">
-        <div>
-          <h2 id="invoice-title">Faktura</h2>
-          <dl class="meta" id="invoice-meta"></dl>
-        </div>
-        <div class="stats" id="stats"></div>
+    <!-- Detail panel (slides in from the right) -->
+    <aside class="panel" id="panel" aria-hidden="true" inert>
+      <div class="panel-head">
+        <h2 id="panel-title"></h2>
+        <button class="icon-btn" id="panel-close" type="button" aria-label="Zatvori">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>
+        </button>
       </div>
-      <p id="plan-note" class="plan-note small" hidden></p>
+      <div class="panel-body" id="panel-body"></div>
+    </aside>
+  </div>
 
-      <div class="table-wrap">
-        <table class="items">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Stavka</th>
-              <th class="num">Iznos</th>
-              <th>Predlog</th>
-              <th>Izvor</th>
-              <th>Sigurnost</th>
-              <th>Obrazloženje</th>
-              <th>Konto za knjiženje</th>
-            </tr>
-          </thead>
-          <tbody id="items"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section id="history" class="card" hidden>
-      <div class="result-head">
-        <h2>Istorija potvrđenih kontiranja</h2>
-        <button class="btn" id="refresh-history" type="button">Osveži</button>
-      </div>
-      <div class="table-wrap">
-        <table class="items">
-          <thead>
-            <tr><th>Vreme</th><th>Stavka</th><th>Dobavljač</th><th>Konto</th><th>Predlog</th><th>Status</th></tr>
-          </thead>
-          <tbody id="history-rows"></tbody>
-        </table>
-      </div>
-    </section>
-  </main>
-
-  <footer class="wrap footer muted small">
-    Spisak konta je izvod iz kontnog okvira (Sl. glasnik RS 89/2020) i nije verifikovan — pre upotrebe ga mora potvrditi knjigovođa.
-    Predlozi su pomoć knjigovođi, a ne zamena za njegovu odluku.
-  </footer>
-
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="/static/app.js"></script>
 </body>
 </html>

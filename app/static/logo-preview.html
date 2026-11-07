@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KontoAI — logo</title>
+  <link rel="icon" href="/static/logo/mark-k.svg" type="image/svg+xml">
+  <style>
+    :root {
+      --bg: #f5f6f8; --surface: #fff; --line: #e8eaee; --text: #1d1f23; --text-2: #6b717c;
+      --accent: #0a7cff; --accent-ink: #005bc4; --logo-gray: #5b6370;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.5; }
+    main { max-width: 1080px; margin: 0 auto; padding: 56px 24px 72px; }
+    h1 { font-size: 28px; line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 6px; font-weight: 650; }
+    .sub { color: var(--text-2); margin: 0 0 40px; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 28px; }
+    .card.pick { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(10, 124, 255, .08); }
+    .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .name { font-weight: 600; }
+    .tag { font-size: 12px; font-weight: 600; color: var(--accent-ink); background: rgba(10, 124, 255, .08); padding: 3px 10px; border-radius: 999px; }
+    .stage { height: 150px; display: grid; place-items: center; border-radius: 12px; background: var(--bg); }
+    .stage img { width: 84px; height: 84px; }
+    .lockup { display: flex; align-items: center; gap: 10px; }
+    .lockup img { width: 28px; height: 28px; }
+    .word { font-size: 21px; font-weight: 650; letter-spacing: -0.03em; color: var(--logo-gray); }
+    .word b { color: var(--accent); font-weight: 650; }
+    .word.big { font-size: 40px; }
+    .sizes { display: flex; align-items: center; gap: 18px; color: #5d636d; font-size: 12px; }
+    .sizes span { display: inline-flex; align-items: center; gap: 8px; }
+    .sizes img { display: block; }
+    .dark { background: #1c1e22; border-radius: 12px; padding: 14px 16px; }
+    .dark .word { color: #c9ced6; }
+    .dark .word b { color: #4ea1ff; }
+    p.note { color: var(--text-2); font-size: 14px; margin: 0; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Logo — predlozi</h1>
+    <p class="sub">Tri varijante. Preporuka je označena i već stoji u bočnoj traci aplikacije.</p>
+
+    <div class="grid">
+      <section class="card pick">
+        <div class="head"><span class="name">A · Znak K</span><span class="tag">Preporuka</span></div>
+        <div class="stage"><img src="/static/logo/mark-k.svg" alt=""></div>
+        <div class="lockup"><img src="/static/logo/mark-k.svg" alt=""><span class="word">konto<b>ai</b></span></div>
+        <div class="dark lockup"><img src="/static/logo/mark-k.svg" alt=""><span class="word">konto<b>ai</b></span></div>
+        <div class="sizes"><span><img src="/static/logo/mark-k.svg" width="32" height="32" alt="">32</span><span><img src="/static/logo/mark-k.svg" width="20" height="20" alt="">20</span><span><img src="/static/logo/mark-k.svg" width="16" height="16" alt="">16</span></div>
+        <p class="note">Čisto slovo K: siv stub, plavi krakovi. Čita se jasno i u veličini ikonice taba.</p>
+      </section>
+
+      <section class="card">
+        <div class="head"><span class="name">B · K sa kvačicom</span></div>
+        <div class="stage"><img src="/static/logo/mark-k-check.svg" alt=""></div>
+        <div class="lockup"><img src="/static/logo/mark-k-check.svg" alt=""><span class="word">konto<b>ai</b></span></div>
+        <div class="dark lockup"><img src="/static/logo/mark-k-check.svg" alt=""><span class="word">konto<b>ai</b></span></div>
+        <div class="sizes"><span><img src="/static/logo/mark-k-check.svg" width="32" height="32" alt="">32</span><span><img src="/static/logo/mark-k-check.svg" width="20" height="20" alt="">20</span><span><img src="/static/logo/mark-k-check.svg" width="16" height="16" alt="">16</span></div>
+        <p class="note">Donji krak je kvačica — „potvrđeno kontiranje“. Više značenja, ali je u 16 px manje čitko.</p>
+      </section>
+
+      <section class="card">
+        <div class="head"><span class="name">C · Samo wordmark</span></div>
+        <div class="stage"><span class="word big">konto<b>ai</b></span></div>
+        <div class="lockup"><span class="word">konto<b>ai</b></span></div>
+        <div class="dark lockup"><span class="word">konto<b>ai</b></span></div>
+        <div class="sizes"><span>Bez znaka — za ikonicu taba bi i dalje trebalo nešto od A ili B.</span></div>
+        <p class="note">Najjednostavnije, bez simbola. Dobro na širokim površinama, slabije kao mala ikonica.</p>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

@@ -35,3 +35,6 @@ env/
 .claude/
 Thumbs.db
 .DS_Store
+
+# Local design-linter config
+.impeccable/

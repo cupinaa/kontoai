@@ -29,6 +29,21 @@ def test_index_page_is_served(client):
     assert client.get("/static/app.js").status_code == 200
 
 
+def test_logo_preview_and_static_assets(client):
+    page = client.get("/logo-preview")
+    assert page.status_code == 200 and "Preporuka" in page.text
+    for path in ("/static/logo/mark-k.svg", "/static/logo/mark-k-check.svg", "/static/clients.json"):
+        assert client.get(path).status_code == 200, path
+    clients = client.get("/static/clients.json").json()
+    assert clients[0]["id"] == "K001" and all(c["delatnost"] for c in clients)
+
+
+def test_index_has_no_developer_labels(client):
+    html = client.get("/").text + client.get("/static/app.js").text
+    for word in ("gemini", "LLM nije konfigurisan", "Jedina opcija", "tokens"):
+        assert word not in html
+
+
 def test_invoice_xml_upload(client, sample_bytes):
     response = client.post(
         "/invoices/xml",
