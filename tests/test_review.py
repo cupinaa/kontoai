@@ -118,7 +118,9 @@ def test_import_compares_accountant_with_expected_and_system(review, generated, 
     assert "Tihe greške sistema prema knjigovođi** (sistem pogrešio, a nije označio za proveru): 0" in report
     assert "sistem je 1 takođe označio" in report
     assert "| 33 | Usluge po ugovoru za oktobar | 5300 | 539 | 530 | da | podizvođač |" in report
-    assert "tačno: 1, netačno: 1" in report
+    assert "tačno (da): 1, netačno (ne): 1, nesigurno (?): 0" in report
+    assert "### Svi odgovori knjigovođe" in report
+    assert "| 19 | Laptop Dell Latitude 5440 | laka | 023 | 023 | 023 | 023 | ne |" in report
     assert "NISU automatski izmenjena" in report
 
 
@@ -145,6 +147,62 @@ def test_import_new_items_builds_dataset_and_skips_examples_and_personal_data(re
     assert "Uvezeno: 3 stavki; preskočeno: 2" in report
     assert "lične/poslovne podatke" in report
     assert "Evaluacija NIJE pokrenuta" in report
+
+
+def test_chart_question_marks_are_reported_as_unsure(review, generated, tmp_path):
+    fill(generated / "kontni_okvir_provera.xlsx", "Konto", {0: {3: "?"}, 1: {3: "da"}})
+    report = review.run_import(review_dir=generated, accountant_dataset=tmp_path / "k.json",
+                               report=tmp_path / "r.md")
+    assert "nesigurno (?): 1" in report
+    assert "| 023 | Postrojenja i oprema | ? |  |" in report
+
+
+def test_decisions_supplier_activity_and_pending_correction(review, generated, tmp_path):
+    new = generated / "nove_stavke.xlsx"
+    fill(new, "Opis stavke", {
+        2: {1: "usluge advokata", 2: "advokatska kancelarija", 3: "5501", 4: "pravne usluge"},
+        3: {1: "zakup sajamskog prostora", 3: "5340"},  # supplier activity left empty
+        4: {1: "oglasavnje u casopisu", 2: "oglasavanje sredstvima javnog informisanja", 3: "5590"},
+    })
+    (generated / "odluke.json").write_text(json.dumps({"nove_stavke": {
+        "client_id": "K001", "client_activity": "proizvodnja dijetetskih proizvoda", "activity_column": "supplier",
+        "pending_correction": [{"opis": "oglasavnje u casopisu", "konto": "5590", "razlog": "greška"}],
+    }}, ensure_ascii=False), encoding="utf-8")
+    out = tmp_path / "k.json"
+    report = review.run_import(review_dir=generated, accountant_dataset=out, report=tmp_path / "r.md")
+
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["clients"] == {"K001": "proizvodnja dijetetskih proizvoda"}
+    lawyer, fair, ad = data["items"]
+    assert lawyer["client_id"] == fair["client_id"] == ad["client_id"] == "K001"
+    assert lawyer["delatnost_dobavljaca"] == "advokatska kancelarija"
+    assert fair["delatnost_dobavljaca"] is None
+    assert lawyer["expected_konto"] == "550" and lawyer["expected_analytic"] == "5501"
+    assert "status" not in lawyer
+    assert ad["status"] == "ceka_ispravku" and ad["exclude_from_eval"] is True
+    assert "čeka ispravku (izuzeto iz evaluacije): 1" in report
+    assert "delatnost DOBAVLJAČA" in report
+
+
+def test_evaluate_skips_items_excluded_from_evaluation(tmp_path, monkeypatch, capsys):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("evaluate_script2", SCRIPT.parent / "evaluate.py")
+    evaluate = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, "evaluate_script2", evaluate)
+    spec.loader.exec_module(evaluate)
+    dataset = tmp_path / "d.json"
+    dataset.write_text(json.dumps({
+        "clients": {"K001": "proizvodnja dijetetskih proizvoda"}, "history_seed": [],
+        "items": [
+            {"id": 1, "client_id": "K001", "name": "Zakup poslovnog prostora", "expected_konto": "533"},
+            {"id": 2, "client_id": "K001", "name": "oglasavnje u casopisu", "expected_konto": "559",
+             "exclude_from_eval": True},
+        ],
+    }), encoding="utf-8")
+    rows, _ = evaluate.run(dataset, use_llm=False, rpm=None, use_cache=False)
+    assert [r.id for r in rows] == [1]
+    assert "Skipping 1 item(s)" in capsys.readouterr().err
 
 
 def test_import_with_empty_files_does_not_write_dataset(review, generated, tmp_path):

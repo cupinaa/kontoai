@@ -34,6 +34,7 @@ from app.classifier import ItemContext  # noqa: E402
 from app.config import DATA_DIR, get_settings  # noqa: E402
 from app.llm.base import LLMError, LLMProvider, LLMRequest, LLMSuggestion  # noqa: E402
 from app.masking import mask_for_llm  # noqa: E402
+from app.text import normalize  # noqa: E402
 from app.models import InvoiceItem  # noqa: E402
 from app.service import build_classifier  # noqa: E402
 
@@ -42,6 +43,7 @@ DATASET = DATA_DIR / "eval" / "dataset.json"
 PREDICTIONS = DATA_DIR / "eval" / "system_predictions.json"
 ACCOUNTANT_DATASET = DATA_DIR / "eval" / "knjigovodja.json"
 REPORT = REVIEW_DIR / "izvestaj_provere.md"
+DECISIONS = REVIEW_DIR / "odluke.json"
 
 CHART_FILE = "kontni_okvir_provera.xlsx"
 BLIND_FILE = "slepa_provera.xlsx"
@@ -254,12 +256,12 @@ def normalize_konto(value) -> tuple[str | None, str]:
 
 def import_chart(path: Path) -> dict:
     _, rows = _rows(path, "Konto")
-    result = {"ok": [], "wrong": [], "empty": []}
-    for konto, naziv, verdict, note, *_ in rows + []:
+    result = {"ok": [], "wrong": [], "unsure": [], "empty": []}
+    for konto, naziv, verdict, note, *_ in rows:
         if konto is None:
             continue
         verdict = str(verdict or "").strip().lower()
-        key = "ok" if verdict == "da" else "wrong" if verdict == "ne" else "empty"
+        key = {"da": "ok", "ne": "wrong", "?": "unsure"}.get(verdict, "empty")
         result[key].append({"konto": str(konto), "naziv": naziv, "napomena": note})
     additions = []
     ws = load_workbook(path, data_only=True)
@@ -297,17 +299,36 @@ def import_blind(path: Path, dataset: Path, predictions_path: Path, chart: Chart
     return {"rows": sorted(out, key=lambda r: r["id"]), "total": len(data["items"])}
 
 
-def import_new(path: Path, chart: ChartOfAccounts, output: Path = ACCOUNTANT_DATASET) -> dict:
+def load_decisions(path: Path = DECISIONS) -> dict:
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def import_new(path: Path, chart: ChartOfAccounts, output: Path = ACCOUNTANT_DATASET,
+               decisions: dict | None = None) -> dict:
+    """Turn the accountant's new items into an evaluation dataset.
+
+    `decisions["nove_stavke"]` (data/review/odluke.json) can say that the activity column actually
+    holds the SUPPLIER's activity (kept as `delatnost_dobavljaca`), fix the client's activity and id for
+    all rows, and mark rows as pending correction (kept, but excluded from every evaluation).
+    """
+    cfg = (decisions or {}).get("nove_stavke", {})
+    supplier_column = cfg.get("activity_column") == "supplier"
+    fixed_activity = cfg.get("client_activity")
+    fixed_client = cfg.get("client_id")
+    pending = {(normalize(p["opis"]), str(p["konto"])): p for p in cfg.get("pending_correction", [])}
+
     _, rows = _rows(path, "Opis stavke")
     clients: dict[str, str] = {}
     items, skipped = [], []
     for n, row in enumerate(rows, start=1):
-        desc, activity, answer, note = (row + [None] * 4)[:4]
+        desc, column_activity, answer, note = (row + [None] * 4)[:4]
         if str(note or "").strip().upper().startswith(EXAMPLE_MARKER):
             continue
-        if not desc and not activity and answer in (None, ""):
+        if not desc and not column_activity and answer in (None, ""):
             continue
-        desc, activity = str(desc or "").strip(), str(activity or "").strip()
+        desc, column_activity = str(desc or "").strip(), str(column_activity or "").strip()
+        supplier_activity = column_activity if supplier_column else None
+        activity = fixed_activity or ("" if supplier_column else column_activity)
         konto, raw = normalize_konto(answer)
         problems = []
         if not desc:
@@ -316,24 +337,33 @@ def import_new(path: Path, chart: ChartOfAccounts, output: Path = ACCOUNTANT_DAT
             problems.append("nema delatnosti klijenta")
         if konto in (None, "?"):
             problems.append("nema tačnog konta")
-        masked_desc, _ = mask_for_llm(desc)
-        masked_act, _ = mask_for_llm(activity)
-        if masked_desc != desc or masked_act != activity:
+        masked = [mask_for_llm(t)[0] != t for t in (desc, activity, supplier_activity or "")]
+        if any(masked):
             problems.append("izgleda da sadrži lične/poslovne podatke (PIB, ime, račun...) — ispraviti")
         if problems:
             skipped.append({"row": n, "opis": desc, "razlozi": problems})
             continue
-        client_id = clients.setdefault(activity, f"K{len(clients) + 1:03d}")
-        items.append({
+        client_id = fixed_client or clients.setdefault(activity, f"K{len(clients) + 1:03d}")
+        clients.setdefault(activity, client_id)
+        digits = re.sub(r"\D", "", raw)
+        item = {
             "id": len(items) + 1, "client_id": client_id, "name": desc, "expected_konto": konto,
+            "expected_analytic": digits if len(digits) >= 4 else None,
             "accountant_konto_raw": raw, "note": note, "konto_in_chart": konto in chart,
             "difficulty": "accountant", "expected_source": "unknown",
-        })
+        }
+        if supplier_column:
+            item["delatnost_dobavljaca"] = supplier_activity or None
+        decision = pending.get((normalize(desc), digits))
+        if decision:
+            item.update(status="ceka_ispravku", exclude_from_eval=True, status_razlog=decision["razlog"])
+        items.append(item)
     dataset = {
         "_napomena": "Stavke i tačna konta koje je uneo knjigovođa (data/review/nove_stavke.xlsx). "
                      "Evaluacija na ovom skupu traži posebno odobrenje jer šalje pozive ka LLM-u.",
         "_note": "Items and accounts provided by an accountant. Running the evaluation on them needs separate "
-                 "approval because it calls the LLM API.",
+                 "approval because it calls the LLM API. Items with exclude_from_eval=true are skipped by "
+                 "scripts/evaluate.py.",
         "source": "accountant",
         "imported": date.today().isoformat(),
         "clients": {v: k for k, v in clients.items()},
@@ -356,12 +386,13 @@ def render_report(chart_res: dict | None, blind: dict | None, new: dict | None) 
     if chart_res is None:
         out.append("Fajl nije pronađen.")
     else:
-        filled = len(chart_res["ok"]) + len(chart_res["wrong"])
-        out.append(f"Provereno: {filled} od {filled + len(chart_res['empty'])} konta — tačno: "
-                   f"{len(chart_res['ok'])}, netačno: {len(chart_res['wrong'])}.")
-        if chart_res["wrong"]:
-            out += ["", "| Konto | Naziv | Napomena |", "|---|---|---|"]
-            out += [f"| {w['konto']} | {w['naziv']} | {w['napomena'] or ''} |" for w in chart_res["wrong"]]
+        total = sum(len(chart_res[k]) for k in ("ok", "wrong", "unsure", "empty"))
+        out.append(f"Konta: {total} — tačno (da): {len(chart_res['ok'])}, netačno (ne): {len(chart_res['wrong'])}, "
+                   f"nesigurno (?): {len(chart_res['unsure'])}, bez odgovora: {len(chart_res['empty'])}.")
+        listed = [("ne", w) for w in chart_res["wrong"]] + [("?", u) for u in chart_res["unsure"]]
+        if listed:
+            out += ["", "| Konto | Naziv | Odgovor | Napomena |", "|---|---|---|---|"]
+            out += [f"| {w['konto']} | {w['naziv']} | {v} | {w['napomena'] or ''} |" for v, w in listed]
         if chart_res["additions"]:
             out += ["", "Predlog dopune:", "", "| Konto | Naziv | Napomena |", "|---|---|---|"]
             out += [f"| {a['konto']} | {a['naziv'] or ''} | {a['napomena'] or ''} |" for a in chart_res["additions"]]
@@ -386,10 +417,10 @@ def render_report(chart_res: dict | None, blind: dict | None, new: dict | None) 
             f"| Knjigovođa = predlog sistema | {len(agree_sys)} / {len(decided)} | "
             f"{_pct(len(agree_sys), len(decided))} |",
         ]
-        for difficulty in ("easy", "hard"):
+        for difficulty, label in (("easy", "lake"), ("hard", "teške")):
             group = [r for r in decided if r["difficulty"] == difficulty]
             if group:
-                out.append(f"| — samo {difficulty}: knjigovođa = sistem | "
+                out.append(f"| — samo {label} stavke: knjigovođa = sistem | "
                            f"{sum(r['system'] == r['accountant'] for r in group)} / {len(group)} | "
                            f"{_pct(sum(r['system'] == r['accountant'] for r in group), len(group))} |")
         silent = [r for r in decided if r["system"] and r["system"] != r["accountant"] and not r["system_needs_review"]]
@@ -403,6 +434,18 @@ def render_report(chart_res: dict | None, blind: dict | None, new: dict | None) 
         if outside:
             out.append(f"Konta koja je knjigovođa upisao, a nisu na spisku sistema: "
                        f"{', '.join(sorted({r['accountant'] for r in outside}))} — sistem ih ne može predložiti.")
+        by_difficulty = {d: sum(r["difficulty"] == d for r in rows) for d in ("easy", "hard")}
+        out.append(f"Popunjene stavke po težini: lake {by_difficulty['easy']}, teške {by_difficulty['hard']} "
+                   f"(od toga sa '?': lake {sum(r['difficulty'] == 'easy' for r in unclear)}, "
+                   f"teške {sum(r['difficulty'] == 'hard' for r in unclear)}).")
+        if rows:
+            out += ["", "### Svi odgovori knjigovođe", "",
+                    "| ID | Stavka | Težina | Knjigovođa (analitika) | Sintetika | Očekivano | Sistem | "
+                    "Sistem označio proveru |", "|---|---|---|---|---|---|---|---|"]
+            for r in sorted(rows, key=lambda r: r["id"]):
+                out.append(f"| {r['id']} | {r['name']} | {'teška' if r['difficulty'] == 'hard' else 'laka'} | "
+                           f"{r['accountant_raw']} | {r['accountant']} | {r['expected']} | {r['system'] or '—'} | "
+                           f"{'da' if r['system_needs_review'] else 'ne'} |")
         diff = [r for r in decided if r["accountant"] != r["expected"] or r["accountant"] != r["system"]] + unclear
         if diff:
             out += ["", "### Razlike", "", "| ID | Stavka | Knjigovođa | Očekivano (dataset) | Sistem | "
@@ -419,7 +462,17 @@ def render_report(chart_res: dict | None, blind: dict | None, new: dict | None) 
     if new is None:
         out.append("Fajl nije pronađen.")
     else:
-        out.append(f"Uvezeno: {len(new['items'])} stavki; preskočeno: {len(new['skipped'])}.")
+        pending = [i for i in new["items"] if i.get("status") == "ceka_ispravku"]
+        out.append(f"Uvezeno: {len(new['items'])} stavki; preskočeno: {len(new['skipped'])}; "
+                   f"čeka ispravku (izuzeto iz evaluacije): {len(pending)}.")
+        if any("delatnost_dobavljaca" in i for i in new["items"]):
+            out.append("Kolona 'Delatnost klijenta' sadržala je delatnost DOBAVLJAČA — sačuvana je kao "
+                       "`delatnost_dobavljaca`; delatnost klijenta je postavljena prema data/review/odluke.json.")
+        if new["items"]:
+            out += ["", "| # | Opis stavke | Delatnost dobavljača | Konto (knjigovođa) | Status |", "|---|---|---|---|---|"]
+            out += [f"| {i['id']} | {i['name']} | {i.get('delatnost_dobavljaca') or '—'} | {i['accountant_konto_raw']} | "
+                    f"{'čeka ispravku' if i.get('status') == 'ceka_ispravku' else 'aktivna'} |" for i in new["items"]]
+            out.append("")
         if new["written"]:
             path = new["path"]
             shown = path.relative_to(ROOT).as_posix() if path.is_relative_to(ROOT) else path.name
@@ -438,10 +491,12 @@ def render_report(chart_res: dict | None, blind: dict | None, new: dict | None) 
 def run_import(review_dir: Path = REVIEW_DIR, dataset: Path = DATASET, predictions: Path = PREDICTIONS,
                accountant_dataset: Path = ACCOUNTANT_DATASET, report: Path = REPORT) -> str:
     chart = ChartOfAccounts.load(get_settings().chart_path)
+    decisions = load_decisions(review_dir / DECISIONS.name)
     chart_res = import_chart(review_dir / CHART_FILE) if (review_dir / CHART_FILE).exists() else None
     blind = (import_blind(review_dir / BLIND_FILE, dataset, predictions, chart)
              if (review_dir / BLIND_FILE).exists() else None)
-    new = import_new(review_dir / NEW_FILE, chart, accountant_dataset) if (review_dir / NEW_FILE).exists() else None
+    new = (import_new(review_dir / NEW_FILE, chart, accountant_dataset, decisions)
+           if (review_dir / NEW_FILE).exists() else None)
     text = render_report(chart_res, blind, new)
     report.write_text(text, encoding="utf-8")
     return text

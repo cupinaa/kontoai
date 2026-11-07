@@ -204,7 +204,11 @@ def run(
 
         rows: list[Row] = []
         announced = False
-        for entry in data["items"]:
+        excluded = [e for e in data["items"] if e.get("exclude_from_eval")]
+        if excluded:
+            print(f"Skipping {len(excluded)} item(s) excluded from evaluation (e.g. pending correction): "
+                  f"{', '.join(str(e['id']) for e in excluded)}", file=sys.stderr)
+        for entry in (e for e in data["items"] if not e.get("exclude_from_eval")):
             item = InvoiceItem(
                 name=entry["name"],
                 quantity=entry.get("quantity"),

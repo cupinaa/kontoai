@@ -1,0 +1,16 @@
+{
+  "_napomena": "Odluke donete posle pregleda popunjenih fajlova. scripts/review.py import ih primenjuje pri svakom uvozu, tako da se originalni odgovori knjigovođe u Excel fajlovima ne menjaju.",
+  "nove_stavke": {
+    "client_id": "K001",
+    "client_activity": "proizvodnja dijetetskih proizvoda",
+    "activity_column": "supplier",
+    "_activity_column_napomena": "Knjigovođa je u kolonu 'Delatnost klijenta' upisala delatnost DOBAVLJAČA. Vrednost se čuva kao 'delatnost_dobavljaca', a delatnost klijenta je ista za sve stavke (jedan klijent).",
+    "pending_correction": [
+      {
+        "opis": "oglasavnje u casopisu",
+        "konto": "5590",
+        "razlog": "Greška knjigovođe u kontu; čeka ispravku. Izuzeto iz svake evaluacije i iz probnog analitičkog plana."
+      }
+    ]
+  }
+}
