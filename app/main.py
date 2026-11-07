@@ -51,6 +51,8 @@ def create_app(settings: Settings | None = None, llm: LLMProvider | None = None,
         usage = getattr(llm, "usage", None)
         if usage is not None:
             info["usage"] = dict(usage)  # successful responses and token counts
+        if hasattr(llm, "hits"):
+            info["cache_hits"] = llm.hits  # identical requests answered without an API call
         return info
 
     @app.get("/health")

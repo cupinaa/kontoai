@@ -57,6 +57,12 @@ def test_server_call_cap_is_enforced_and_reported(monkeypatch, settings):
     llm = client.get("/health").json()["llm"]
     assert llm["calls_sent"] == 2 and llm["max_calls"] == 2
     assert llm["usage"] == {"calls": 2, "prompt_tokens": 200, "output_tokens": 20, "thinking_tokens": 10}
+    assert llm["cache_hits"] == 0
+
+    # The same request again is answered from the in-memory cache: no new API call.
+    client.post("/invoices", json={**payload, "items": payload["items"][:1]})
+    llm = client.get("/health").json()["llm"]
+    assert len(sent) == 2 and llm["calls_sent"] == 2 and llm["cache_hits"] == 1
 
 
 def test_max_llm_calls_from_environment(monkeypatch):

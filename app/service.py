@@ -16,10 +16,12 @@ def build_llm(settings: Settings) -> LLMProvider | None:
     if not settings.gemini_api_key:
         return None
     from app.llm.base import CallBudget
+    from app.llm.cache import MemoryCachedProvider
     from app.llm.gemini import GeminiProvider
 
     budget = CallBudget(settings.max_llm_calls) if settings.max_llm_calls is not None else None
-    return GeminiProvider(api_key=settings.gemini_api_key, model=settings.gemini_model, budget=budget)
+    provider = GeminiProvider(api_key=settings.gemini_api_key, model=settings.gemini_model, budget=budget)
+    return MemoryCachedProvider(provider)  # identical masked requests are answered once per server process
 
 
 def build_classifier(settings: Settings, llm: LLMProvider | None = None, *, use_llm: bool = True) -> Classifier:
