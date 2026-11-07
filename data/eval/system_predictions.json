@@ -1,0 +1,308 @@
+{
+  "_note": "Predlozi sistema za stavke iz data/eval/dataset.json, rekonstruisani iz keširanih odgovora odobrenog pokretanja evaluacije, bez ijednog poziva ka API-ju.",
+  "model": "gemini-3.6-flash",
+  "generated": "2026-11-07",
+  "cache_misses": 0,
+  "predictions": {
+    "1": {
+      "konto": "532",
+      "source": "history",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "2": {
+      "konto": "539",
+      "source": "history",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "3": {
+      "konto": "134",
+      "source": "history",
+      "confidence": 0.85,
+      "needs_review": false
+    },
+    "4": {
+      "konto": "134",
+      "source": "history",
+      "confidence": 0.85,
+      "needs_review": false
+    },
+    "5": {
+      "konto": "101",
+      "source": "history",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "6": {
+      "konto": "101",
+      "source": "history",
+      "confidence": 0.8,
+      "needs_review": false
+    },
+    "7": {
+      "konto": "513",
+      "source": "rule",
+      "confidence": 0.9,
+      "needs_review": false
+    },
+    "8": {
+      "konto": "513",
+      "source": "rule",
+      "confidence": 0.9,
+      "needs_review": false
+    },
+    "9": {
+      "konto": "533",
+      "source": "rule",
+      "confidence": 0.9,
+      "needs_review": false
+    },
+    "10": {
+      "konto": "513",
+      "source": "rule",
+      "confidence": 0.9,
+      "needs_review": false
+    },
+    "11": {
+      "konto": "531",
+      "source": "rule",
+      "confidence": 0.88,
+      "needs_review": false
+    },
+    "12": {
+      "konto": "531",
+      "source": "rule",
+      "confidence": 0.88,
+      "needs_review": false
+    },
+    "13": {
+      "konto": "512",
+      "source": "rule",
+      "confidence": 0.88,
+      "needs_review": false
+    },
+    "14": {
+      "konto": "553",
+      "source": "rule",
+      "confidence": 0.92,
+      "needs_review": false
+    },
+    "15": {
+      "konto": "552",
+      "source": "rule",
+      "confidence": 0.9,
+      "needs_review": false
+    },
+    "16": {
+      "konto": "550",
+      "source": "rule",
+      "confidence": 0.9,
+      "needs_review": false
+    },
+    "17": {
+      "konto": "533",
+      "source": "rule",
+      "confidence": 0.9,
+      "needs_review": false
+    },
+    "18": {
+      "konto": "512",
+      "source": "rule",
+      "confidence": 0.88,
+      "needs_review": false
+    },
+    "19": {
+      "konto": "023",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "20": {
+      "konto": "539",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "21": {
+      "konto": "134",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "22": {
+      "konto": "531",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "23": {
+      "konto": "134",
+      "source": "llm",
+      "confidence": 0.98,
+      "needs_review": false
+    },
+    "24": {
+      "konto": "101",
+      "source": "llm",
+      "confidence": 0.85,
+      "needs_review": false
+    },
+    "25": {
+      "konto": "532",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "26": {
+      "konto": "531",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "27": {
+      "konto": "554",
+      "source": "llm",
+      "confidence": 0.98,
+      "needs_review": false
+    },
+    "28": {
+      "konto": "551",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "29": {
+      "konto": "512",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "30": {
+      "konto": "550",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "31": {
+      "konto": "539",
+      "source": "llm",
+      "confidence": 0.4,
+      "needs_review": true
+    },
+    "32": {
+      "konto": "101",
+      "source": "llm",
+      "confidence": 0.65,
+      "needs_review": true
+    },
+    "33": {
+      "konto": "530",
+      "source": "llm",
+      "confidence": 0.65,
+      "needs_review": true
+    },
+    "34": {
+      "konto": "134",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "35": {
+      "konto": "101",
+      "source": "llm",
+      "confidence": 0.35,
+      "needs_review": true
+    },
+    "36": {
+      "konto": "513",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "37": {
+      "konto": "532",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "38": {
+      "konto": "539",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "39": {
+      "konto": "553",
+      "source": "llm",
+      "confidence": 0.9,
+      "needs_review": false
+    },
+    "40": {
+      "konto": "134",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "41": {
+      "konto": "023",
+      "source": "llm",
+      "confidence": 0.92,
+      "needs_review": false
+    },
+    "42": {
+      "konto": "134",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "43": {
+      "konto": "101",
+      "source": "llm",
+      "confidence": 0.85,
+      "needs_review": false
+    },
+    "44": {
+      "konto": "134",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "45": {
+      "konto": "513",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "46": {
+      "konto": "530",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    "47": {
+      "konto": "550",
+      "source": "llm",
+      "confidence": 0.92,
+      "needs_review": false
+    },
+    "48": {
+      "konto": "534",
+      "source": "llm",
+      "confidence": 0.98,
+      "needs_review": false
+    },
+    "49": {
+      "konto": "532",
+      "source": "llm",
+      "confidence": 0.85,
+      "needs_review": false
+    },
+    "50": {
+      "konto": "550",
+      "source": "llm",
+      "confidence": 0.95,
+      "needs_review": false
+    }
+  }
+}

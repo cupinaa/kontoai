@@ -153,6 +153,29 @@ python scripts/evaluate.py --max-calls 40     # the real run; stops sending at t
 
 Successful answers are cached in `.eval_cache/`, so running the evaluation again does not spend quota on items that already have an answer. `--rpm 4` keeps a free-tier key under its limit of 5 requests per minute.
 
+### Accountant review
+
+The chart of accounts and the expected accounts need an accountant's check. [`data/review/`](data/review) contains three Excel files for that:
+
+| File | What the accountant does |
+|---|---|
+| `kontni_okvir_provera.xlsx` | Marks each account in the chart as correct or not (da/ne), adds notes, and lists missing accounts on a second sheet. |
+| `slepa_provera.xlsx` | **Blind check** of all 50 items. The file shows only the ID, the item description and the client's activity, in shuffled order. It does not show the expected account or the system's suggestion. The accountant writes the account they would use, or `?` if the description is not enough to decide. |
+| `nove_stavke.xlsx` | A template for new real-world items: description, client activity and correct account. There are two example rows. The note at the top asks for no client, supplier or person names. |
+
+After the files are filled in:
+
+```powershell
+python scripts/review.py import
+```
+
+The command writes `data/review/izvestaj_provere.md`. It compares the accountant's answers with the dataset's expected accounts and with the system's suggestions, for easy and hard items separately, and counts the system's silent errors against the accountant's answers. It also converts the new items into [`data/eval/knjigovodja.json`](data/eval). Before converting, it runs the masking check: rows that look like they contain a PIB, a name or an account number are skipped and listed in the report.
+
+Some details:
+- The system's suggestions come from [`data/eval/system_predictions.json`](data/eval/system_predictions.json). That file was rebuilt from the cached answers of the approved run with `python scripts/review.py predictions`; **none of the review commands call the Gemini API**.
+- Running the evaluation on the accountant's items is a separate step that needs approval: `python scripts/evaluate.py --dataset data/eval/knjigovodja.json --dry-run` first.
+- Expected accounts in the dataset are never changed automatically.
+
 ## Running locally (Windows / PowerShell)
 
 Requires Python 3.12+ (developed and tested on 3.14).
@@ -247,13 +270,14 @@ The response `status` is `confirmed` if the accountant accepted the suggestion a
 
 ## Tests
 
-`pytest` runs 105 tests covering:
+`pytest` runs 120 tests covering:
 - XML parsing, including XXE rejection;
 - rules, history and masking;
 - rejection of accounts outside the chart;
 - the Gemini provider against a fake SDK client, including retries on rate limits and server errors;
 - all API endpoints, including the confirm-and-learn loop;
-- the evaluation script's `--max-calls` guard, cache and `--dry-run`.
+- the evaluation script's `--max-calls` guard, cache and `--dry-run`;
+- generation and import of the accountant review files.
 
 Gemini is mocked everywhere. The tests need neither internet access nor an API key, and a fixture fails any test that tries to create a real client.
 
