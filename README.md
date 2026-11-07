@@ -30,26 +30,31 @@ Iris stays authoritative: the analytic account is chosen below the Iris account.
 
 These are real runs with Gemini (`gemini-3.6-flash`) through the web page, on 2026-11-07. The invoice was [`06_iris_provera_dijetetika.xml`](data/samples/06_iris_provera_dijetetika.xml), the client was `K001` (*proizvodnja dijetetskih proizvoda*), and the analytic plan was the trial plan.
 
-**1. First upload** (empty history):
+**Start:** choose the client, then drop the SEF XML.
+
+![Start screen](docs/screenshots/00_pocetna.png)
+
+**1. After the upload**, with the detail panel open on the row that does not match Iris:
 
 ![First upload](docs/screenshots/01_prvo_ubacivanje.png)
 
-- **Rows 1–3:** the system's own 3-digit account (from the keyword rules) matches Iris.
+- **Konto column:** a green check means the system's own 3-digit account matches Iris, and a yellow dot means it needs a look. No other labels are shown in the table.
+- **Rows 1–3** match Iris.
   - Rows 1 and 2: the LLM chose the analytic account from the offered list, 5330 (office) and 5331 (warehouse).
   - Row 3: the plan has only one analytic account below 513, so no LLM call was needed.
-- **Row 4:** no rule applies, so the LLM proposed 532 against Iris' 539. It is flagged *Ne poklapa se — proveri*.
-- **Row 5:** the rent rule says 533, Iris says 539, so it is also flagged. The LLM was not sure enough about the analytic account (0.50), so nothing is preselected.
+- **Row 4:** no rule applies, so the LLM proposed 532 against Iris' 539.
+- **Row 5** (panel): the rent rule says 533, Iris says 539.
+- **The detail panel** opens when you click a row. It holds the Iris-vs-system comparison, the confidence, the reasoning, and the account and analytic pickers. *Potvrdi sve usklađene (3)* confirms the three green rows in one click.
 
-**2. After confirming 5331 in row 2 and uploading the same invoice again** (after the fix described below, with a clean database):
+**2. After confirming 5331 in row 2 and uploading the same invoice again** (panel on row 2):
 
 ![Second upload](docs/screenshots/02_drugo_ubacivanje.png)
 
-- **Row 2** now comes from item history (*Istorija 95%*): the same supplier and the same description were confirmed before.
-- **The other lines are untouched by that single confirmation:**
-  - row 1 keeps 5330;
-  - row 3 stays 513 → 5133 and matches Iris;
-  - rows 4 and 5 keep their LLM and rule results.
+- **Row 2** now comes from item history (95%): the same supplier and the same description were confirmed before.
+- **The other lines are untouched by that single confirmation.** Row 1 keeps 5330, and row 3 stays 513 → 5133.
 - **The second upload made no LLM calls.** Row 2 came from history, and the other lines' identical masked requests were answered from the server's in-memory cache.
+
+**Logo** ([`/logo-preview`](app/static/logo-preview.html)): four squares, one per digit of the account. The first three, grey, come from the accounting software. The fourth, blue, is the analytic digit that KontoAI suggests.
 
 #### The bug this demo found, and the fix
 
@@ -74,7 +79,8 @@ A test replays the demo exactly: `test_demo_replay_sample_06_learning_without_sp
 |---|---|---|
 | First version, before the fix: the in-app browser plus two headless uploads | 12 | ≈ $0.033 |
 | Re-run after the fix, clean database, server cap 8 | 5 (second upload 0, from cache) | ≈ $0.015 |
-| **Total** | **17 of the 20 approved** | **≈ $0.05** |
+| Screenshots of the redesigned page, clean database, server cap 6 | 5 (everything after the first upload came from history and cache) | ≈ $0.015 |
+| **Total** | **22** | **≈ $0.06** |
 
 ## How it works
 

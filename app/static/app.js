@@ -292,6 +292,7 @@ function openPanel(index) {
   panel.inert = false;
   panel.setAttribute("aria-hidden", "false");
   panel.classList.add("open");
+  document.querySelector(".app").classList.add("panel-open");
 }
 
 function closePanel() {
@@ -299,6 +300,7 @@ function closePanel() {
   panel.classList.remove("open");
   panel.setAttribute("aria-hidden", "true");
   panel.inert = true;
+  document.querySelector(".app").classList.remove("panel-open");
   if (state.selected >= 0 && state.rows[state.selected]) state.rows[state.selected].tr.classList.remove("selected");
   state.selected = -1;
 }
