@@ -77,7 +77,6 @@
     <cbc:InvoicedQuantity unitCode="H87">20</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">10400.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Papir A4 80g, 500 listova</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0001</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -93,7 +92,6 @@
     <cbc:InvoicedQuantity unitCode="H87">3</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">20700.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Toner HP 85A</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0002</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -125,7 +123,6 @@
     <cbc:InvoicedQuantity unitCode="H87">4</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">6600.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Bežični miš Logitech M185</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0004</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -141,7 +138,6 @@
     <cbc:InvoicedQuantity unitCode="H87">30</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">2850.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Fascikle sa mehanizmom</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0005</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -157,7 +153,6 @@
     <cbc:InvoicedQuantity unitCode="H87">2</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">5780.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Kafa u zrnu 1kg</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0006</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>

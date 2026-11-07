@@ -108,6 +108,10 @@ def parse_sef_xml(content: bytes | str) -> ParsedInvoice:
             continue
         description = _text(line, "cac:Item/cbc:Description")
         qty_el = line.find(qty_tag, NS)
+        # BT-133 "Invoice line Buyer accounting reference". When the buyer's software (e.g. Iris)
+        # has already proposed an account, its first three digits are the synthetic account.
+        accounting_cost = re.sub(r"\D", "", _text(line, "cbc:AccountingCost") or "")
+        given_konto = accounting_cost[:3] if len(accounting_cost) >= 3 else None
         items.append(
             InvoiceItem(
                 line_id=_text(line, "cbc:ID"),
@@ -120,6 +124,7 @@ def parse_sef_xml(content: bytes | str) -> ParsedInvoice:
                 vat_rate=_number(line, "cac:Item/cac:ClassifiedTaxCategory/cbc:Percent"),
                 supplier_name=supplier.name,
                 supplier_pib=supplier.pib,
+                given_konto=given_konto,
             )
         )
 

@@ -12,7 +12,7 @@ from app.history import HistoryStore
 from app.llm.base import AnalyticOption, AnalyticRequest, LLMError
 from app.llm.gemini import GeminiProvider
 from app.main import create_app
-from app.models import AnalyticSource, InvoiceItem, Source
+from app.models import AnalyticSource, GivenCheck, InvoiceItem, Source
 from tests.conftest import FakeLLM
 
 CLIENT = "K001"
@@ -80,8 +80,9 @@ def test_llm_error_leaves_choice_to_accountant(chart, history, rules):
 
 def test_single_option_needs_no_llm_call(chart, history, rules):
     llm = FakeLLM()
-    s = make(chart, history, rules, llm).classify(ctx("Advokatske usluge", given_konto="550"))
-    assert s.source is Source.INPUT and s.konto == "550"
+    # "Knjigovodstvene usluge" is decided by a rule (550), and the plan has only 5501 below 550.
+    s = make(chart, history, rules, llm).classify(ctx("Knjigovodstvene usluge"))
+    assert s.source is Source.RULE and s.konto == "550"
     assert s.analytic.konto == "5501"
     assert s.analytic.source is AnalyticSource.ONLY_OPTION
     assert llm.analytic_requests == [] and llm.requests == []
@@ -98,17 +99,58 @@ def test_without_llm_the_accountant_chooses(chart, history, rules):
     assert a.konto is None and a.source is AnalyticSource.NONE and len(a.options) == 2
 
 
-def test_given_synthetic_account_skips_the_synthetic_pipeline(chart, history, rules):
+def test_given_account_matching_the_system(chart, history, rules):
     llm = FakeLLM()
+    s = make(chart, history, rules, llm).classify(ctx("Zakup poslovnog prostora", given_konto="533"))
+    assert s.source is Source.RULE and s.konto == "533"  # the system's own suggestion is kept
+    assert s.given_konto == "533" and s.given_konto_name == "Troškovi zakupnina"
+    assert s.given_check is GivenCheck.MATCH
+    assert s.needs_review is False
+
+
+def test_given_account_match_clears_review_of_an_unsure_system(chart, history, rules):
+    llm = FakeLLM(konto="539", sigurnost=0.5)  # the system alone would flag this
+    s = make(chart, history, rules, llm).classify(ctx("Nešto nejasno", given_konto="539"))
+    assert s.source is Source.LLM and s.given_check is GivenCheck.MATCH and s.needs_review is False
+
+
+def test_given_account_mismatch_goes_to_review(chart, history, rules):
+    llm = FakeLLM()
+    s = make(chart, history, rules, llm).classify(ctx("Zakup parking mesta", given_konto="539"))
+    assert s.konto == "533" and s.source is Source.RULE
+    assert s.given_check is GivenCheck.MISMATCH
+    assert s.needs_review is True
+    # Iris is authoritative for the analytic level: options are below 539, not below 533.
+    assert s.analytic is not None
+    assert all(o.konto.startswith("539") for o in s.analytic.options)
+
+
+def test_given_account_still_runs_the_synthetic_pipeline_with_llm(chart, history, rules):
+    llm = FakeLLM(konto="539")
     s = make(chart, history, rules, llm).classify(ctx("Nešto nejasno", given_konto="533"))
-    assert s.source is Source.INPUT and s.confidence == 1.0 and not s.needs_review
-    assert llm.requests == []  # no synthetic LLM call
+    assert len(llm.requests) == 1  # the synthetic step is NOT skipped
+    assert s.konto == "539" and s.given_check is GivenCheck.MISMATCH
     assert len(llm.analytic_requests) == 1
+    assert {o.konto for o in llm.analytic_requests[0].options} == {"5330", "5331"}  # below Iris' 533
 
 
-def test_given_account_outside_chart_is_ignored(chart, history, rules):
+def test_given_account_unverified_without_own_suggestion(chart, history, rules):
+    s = make(chart, history, rules, None).classify(ctx("Nešto nejasno", given_konto="533"))
+    assert s.konto is None and s.given_check is GivenCheck.UNVERIFIED and s.needs_review
+    assert "nije proveren" in s.explanation
+    assert [o.konto for o in s.analytic.options] == ["5330", "5331"]
+
+
+def test_given_account_outside_chart(chart, history, rules):
     s = make(chart, history, rules, FakeLLM()).classify(ctx("Zakup prostora", given_konto="999"))
-    assert s.source is Source.RULE and s.konto == "533"
+    assert s.konto == "533"
+    assert s.given_check is GivenCheck.NOT_IN_CHART and s.needs_review
+    assert s.given_konto_name is None
+
+
+def test_no_given_account_means_no_check(chart, history, rules):
+    s = make(chart, history, rules, FakeLLM()).classify(ctx("Zakup prostora"))
+    assert s.given_konto is None and s.given_check is None
 
 
 def test_history_item_then_supplier_for_analytic(chart, history: HistoryStore, rules):
@@ -255,9 +297,32 @@ def test_api_given_konto(plan_client):
     client, llm = plan_client
     body = client.post("/invoices", json={
         "client_id": CLIENT, "client_activity": "proizvodnja",
-        "items": [{"name": "Neki opis", "given_konto": "533"}],
+        "items": [{"name": "Zakup prostora", "given_konto": "533"},
+                  {"name": "Neki opis", "given_konto": "533"}],
     }).json()
-    s = body["items"][0]["suggestion"]
-    assert s["source"] == "input" and s["konto"] == "533"
-    assert s["analytic"]["konto"] == "5330"
-    assert llm.requests == []
+    match, mismatch = (r["suggestion"] for r in body["items"])
+    assert match["konto"] == "533" and match["given_konto"] == "533" and match["given_check"] == "match"
+    assert match["analytic"]["konto"] == "5330"
+    assert mismatch["konto"] == "539" and mismatch["given_check"] == "mismatch"  # FakeLLM default 539
+    assert mismatch["needs_review"] is True
+    assert body["needs_review_count"] >= 1
+    assert len(llm.requests) == 1  # the system computed its own suggestion for the unknown item
+
+
+def test_api_xml_accounting_cost_is_the_given_konto(settings, sample_bytes):
+    from dataclasses import replace
+
+    from app.config import DATA_DIR
+
+    app = create_app(replace(settings, analytic_plan_path=DATA_DIR / "analiticki_plan.json"), use_llm=False)
+    body = TestClient(app).post(
+        "/invoices/xml",
+        files={"file": ("f.xml", sample_bytes("06_iris_provera_dijetetika.xml"), "application/xml")},
+        data={"client_activity": "proizvodnja dijetetskih proizvoda", "client_id": CLIENT},
+    ).json()
+    checks = [(r["item"]["given_konto"], r["suggestion"]["konto"], r["suggestion"]["given_check"])
+              for r in body["items"]]
+    assert checks == [("533", "533", "match"), ("533", "533", "match"), ("513", "513", "match"),
+                      ("539", None, "unverified"), ("539", "533", "mismatch")]
+    parking = body["items"][4]["suggestion"]
+    assert all(o["konto"].startswith("539") for o in parking["analytic"]["options"])

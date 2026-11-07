@@ -14,8 +14,17 @@ class Source(StrEnum):
     HISTORY = "history"
     RULE = "rule"
     LLM = "llm"
-    INPUT = "input"  # 3-digit account supplied with the item (e.g. already proposed by Iris)
+    INPUT = "input"  # used in confirmations: the preselected account came from the input (Iris)
     NONE = "none"
+
+
+class GivenCheck(StrEnum):
+    """How the system's own 3-digit suggestion compares with the account given on input (Iris)."""
+
+    MATCH = "match"  # "Poklapa se sa Iris-om"
+    MISMATCH = "mismatch"  # "Ne poklapa se — proveri" (goes to manual review)
+    UNVERIFIED = "unverified"  # the system had no suggestion of its own
+    NOT_IN_CHART = "not_in_chart"  # the given account is not in the system's chart
 
 
 class AnalyticSource(StrEnum):
@@ -48,7 +57,8 @@ class InvoiceItem(BaseModel):
     given_konto: str | None = Field(
         default=None,
         pattern=r"^\d{3}$",
-        description="3-digit account already chosen elsewhere (e.g. by Iris); only the analytic account is suggested",
+        description="3-digit account already proposed elsewhere (e.g. by Iris). The system still computes its own "
+                    "suggestion and compares; the analytic account is chosen below the given account.",
     )
 
 
@@ -90,6 +100,11 @@ class Suggestion(BaseModel):
     needs_review: bool
     analytic: AnalyticSuggestion | None = Field(
         default=None, description="Analytic (4th-digit) suggestion; null when the client has no analytic plan"
+    )
+    given_konto: str | None = Field(default=None, description="3-digit account given on input (Iris), if any")
+    given_konto_name: str | None = None
+    given_check: GivenCheck | None = Field(
+        default=None, description="Comparison of the system's own suggestion (konto) with given_konto"
     )
 
 

@@ -77,7 +77,6 @@
     <cbc:InvoicedQuantity unitCode="MON">8</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">15920.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Mobilna telefonija - poslovna tarifa, oktobar</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0001</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -93,7 +92,6 @@
     <cbc:InvoicedQuantity unitCode="MON">1</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">3490.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Internet 500 Mbps - poslovni paket</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0002</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -109,7 +107,6 @@
     <cbc:InvoicedQuantity unitCode="H87">2</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">65980.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Mobilni telefon uređaj Samsung Galaxy A35</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0003</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -125,7 +122,6 @@
     <cbc:InvoicedQuantity unitCode="MON">6</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">5100.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>GPS praćenje vozila - mesečna usluga</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0004</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>

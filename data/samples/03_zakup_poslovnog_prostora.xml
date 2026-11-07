@@ -77,7 +77,6 @@
     <cbc:InvoicedQuantity unitCode="MON">1</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">185000.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Zakup poslovnog prostora za oktobar 2026</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0001</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -93,7 +92,6 @@
     <cbc:InvoicedQuantity unitCode="MON">2</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">12000.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Zakup parking mesta</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0002</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -109,7 +107,6 @@
     <cbc:InvoicedQuantity unitCode="C62">1</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">14320.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Električna energija - refakturisanje</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0003</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>

@@ -1,6 +1,7 @@
 """The decision pipeline.
 
-Synthetic (3-digit) account:   given on input -> history -> rules -> (masking) -> LLM -> validation
+Synthetic (3-digit) account:   history -> rules -> (masking) -> LLM -> validation;
+                               if Iris gave an account, the result is compared with it (match / mismatch)
 Analytic (4th digit) account:  only among the client's analytic accounts below the 3-digit account:
                                history -> single option -> LLM -> validation -> otherwise the accountant decides
 """
@@ -15,7 +16,15 @@ from app.chart import ChartOfAccounts
 from app.history import HistoryStore
 from app.llm.base import AnalyticRequest, LLMError, LLMProvider, LLMRequest
 from app.masking import Masker
-from app.models import AnalyticOption, AnalyticSource, AnalyticSuggestion, InvoiceItem, Source, Suggestion
+from app.models import (
+    AnalyticOption,
+    AnalyticSource,
+    AnalyticSuggestion,
+    GivenCheck,
+    InvoiceItem,
+    Source,
+    Suggestion,
+)
 from app.rules import RuleEngine
 
 log = logging.getLogger(__name__)
@@ -75,19 +84,37 @@ class Classifier:
         )
 
     def classify(self, ctx: ItemContext) -> Suggestion:
+        # The system always computes its own synthetic suggestion, also when Iris already gave one,
+        # so that the two can be compared.
         suggestion = self._classify_synthetic(ctx)
-        suggestion.analytic = self.suggest_analytic(ctx, suggestion.konto)
+        given = ctx.item.given_konto
+        if given:
+            self._check_given(suggestion, given)
+        # The analytic account is chosen below the given (Iris) account when there is one: it is authoritative.
+        suggestion.analytic = self.suggest_analytic(ctx, given or suggestion.konto)
         return suggestion
+
+    def _check_given(self, s: Suggestion, given: str) -> None:
+        s.given_konto = given
+        s.given_konto_name = self.chart.name(given)
+        if given not in self.chart:
+            s.given_check = GivenCheck.NOT_IN_CHART
+            s.needs_review = True
+            s.explanation = f"Iris konto {given} nije u kontnom okviru sistema. {s.explanation}"
+        elif s.konto is None:
+            s.given_check = GivenCheck.UNVERIFIED
+            s.needs_review = True
+            s.explanation = f"Sistem nema svoj predlog, pa Iris konto {given} nije proveren. {s.explanation}"
+        elif s.konto == given:
+            # Two independent sources agree: no review needed, even if the system alone was unsure.
+            s.given_check = GivenCheck.MATCH
+            s.needs_review = False
+        else:
+            s.given_check = GivenCheck.MISMATCH
+            s.needs_review = True
 
     def _classify_synthetic(self, ctx: ItemContext) -> Suggestion:
         item = ctx.item
-
-        # 0. Account already chosen elsewhere (e.g. Iris proposes the synthetic account).
-        if item.given_konto:
-            if item.given_konto in self.chart:
-                return self._result(item.given_konto, Source.INPUT, 1.0,
-                                    "Sintetički konto je zadat na ulazu (npr. iz knjigovodstvenog programa).")
-            log.warning("Given account %r is not in the chart; classifying the item instead", item.given_konto)
 
         # 1. Client history — the strongest signal, because the accountant already decided.
         match = self.history.lookup(ctx.client_id, item.name, item.supplier_pib, item.supplier_name)

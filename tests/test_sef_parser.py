@@ -36,11 +36,31 @@ def test_parses_line_items(sample_bytes):
 
 def test_all_samples_parse():
     samples = sorted((DATA_DIR / "samples").glob("*.xml"))
-    assert 3 <= len(samples) <= 5
+    assert len(samples) >= 3  # 5 base samples + 06, the demo of the Iris check
     for path in samples:
         invoice = parse_sef_xml(path.read_bytes())
         assert invoice.items, path.name
         assert invoice.meta.supplier.pib and invoice.meta.buyer.pib
+
+
+def test_accounting_cost_becomes_given_konto(sample_bytes):
+    items = parse_sef_xml(sample_bytes("06_iris_provera_dijetetika.xml")).items
+    assert [i.given_konto for i in items] == ["533", "533", "513", "539", "539"]
+    assert all(i.given_konto is None for i in parse_sef_xml(sample_bytes("01_gorivo_kurirska_sluzba.xml")).items)
+
+
+def test_accounting_cost_analytic_is_cut_to_three_digits():
+    xml = """<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+        xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+        xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+      <cac:InvoiceLine><cbc:ID>1</cbc:ID><cbc:AccountingCost>5331</cbc:AccountingCost>
+        <cac:Item><cbc:Name>A</cbc:Name></cac:Item></cac:InvoiceLine>
+      <cac:InvoiceLine><cbc:ID>2</cbc:ID><cbc:AccountingCost>MT-12</cbc:AccountingCost>
+        <cac:Item><cbc:Name>B</cbc:Name></cac:Item></cac:InvoiceLine>
+    </Invoice>"""
+    a, b = parse_sef_xml(xml.encode()).items
+    assert a.given_konto == "533"
+    assert b.given_konto is None  # not an account number
 
 
 def test_parses_credit_note():

@@ -32,6 +32,7 @@ class Line:
     price: float
     vat: int = 20
     description: str | None = None
+    accounting_cost: str | None = None  # BT-133: account already proposed by the buyer's software (Iris)
 
 
 BRZI_KURIR = Company("Brzi Kurir DOO", "101000001", "21000001", "Bulevar oslobođenja 12", "Novi Sad", "Ana Ilić")
@@ -121,6 +122,24 @@ INVOICES = [
             Line("GPS praćenje vozila - mesečna usluga", 6, "MON", 850.00),
         ],
     ),
+    (
+        # Demo of the Iris check: each line carries the 3-digit account Iris proposed (AccountingCost).
+        # Line 5 is a deliberate mismatch: Iris says 539, the system's rule says 533 (rent).
+        "06_iris_provera_dijetetika.xml",
+        "PCV-11/2026",
+        "2026-11-02",
+        Company("Poslovni Centar Vračar DOO", "203000033", "22000033", "Krunska 50", "Beograd",
+                "Milan Marković", "racunovodstvo@pcvracar.example"),
+        Company("Dijeta Prima DOO", "110000010", "21000010", "Industrijska 7", "Šabac", "Ivana Kostić"),
+        "170-0000000011003-33",
+        [
+            Line("Zakup poslovnog prostora za novembar 2026", 1, "MON", 185000.00, accounting_cost="533"),
+            Line("Zakup magacinskog prostora za gotove proizvode", 1, "MON", 64000.00, accounting_cost="533"),
+            Line("Električna energija - refakturisanje", 1, "C62", 15870.00, accounting_cost="513"),
+            Line("Troškovi čišćenja zajedničkih prostorija", 1, "C62", 9500.00, accounting_cost="539"),
+            Line("Zakup parking mesta", 2, "MON", 6000.00, accounting_cost="539"),
+        ],
+    ),
 ]
 
 
@@ -164,13 +183,15 @@ def invoice_xml(number, date, supplier, buyer, account, lines) -> str:
     for i, line in enumerate(lines, 1):
         net = round(line.qty * line.price, 2)
         by_rate[line.vat] = by_rate.get(line.vat, 0.0) + net
-        description = f"<cbc:Description>{escape(line.description)}</cbc:Description>" if line.description else ""
+        description = (f"\n      <cbc:Description>{escape(line.description)}</cbc:Description>"
+                       if line.description else "")
+        accounting = (f"\n    <cbc:AccountingCost>{escape(line.accounting_cost)}</cbc:AccountingCost>"
+                      if line.accounting_cost else "")
         rendered.append(f"""  <cac:InvoiceLine>
     <cbc:ID>{i}</cbc:ID>
     <cbc:InvoicedQuantity unitCode="{line.unit}">{line.qty:g}</cbc:InvoicedQuantity>
-    <cbc:LineExtensionAmount currencyID="RSD">{money(net)}</cbc:LineExtensionAmount>
-    <cac:Item>
-      {description}
+    <cbc:LineExtensionAmount currencyID="RSD">{money(net)}</cbc:LineExtensionAmount>{accounting}
+    <cac:Item>{description}
       <cbc:Name>{escape(line.name)}</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-{i:04d}</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>

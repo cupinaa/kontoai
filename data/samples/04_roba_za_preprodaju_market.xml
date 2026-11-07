@@ -86,7 +86,6 @@
     <cbc:InvoicedQuantity unitCode="H87">240</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">28320.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Mleko 2,8% m.m. 1L</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0001</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -102,7 +101,6 @@
     <cbc:InvoicedQuantity unitCode="H87">120</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">7680.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Hleb beli 500g</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0002</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -118,7 +116,6 @@
     <cbc:InvoicedQuantity unitCode="H87">96</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">13344.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Sok od jabuke 1L</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0003</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -134,7 +131,6 @@
     <cbc:InvoicedQuantity unitCode="H87">40</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">13680.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Mineralna voda 1,5L, pakovanje 6 kom</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0004</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -150,7 +146,6 @@
     <cbc:InvoicedQuantity unitCode="H87">2</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">6400.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Kese PVC sa logom, 1000 kom</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0005</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -166,7 +161,6 @@
     <cbc:InvoicedQuantity unitCode="C62">1</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">4500.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Prevoz robe do maloprodajnog objekta</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0006</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>

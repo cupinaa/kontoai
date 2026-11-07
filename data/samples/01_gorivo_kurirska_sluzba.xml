@@ -77,7 +77,6 @@
     <cbc:InvoicedQuantity unitCode="LTR">412.5</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">71156.25</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Evrodizel</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0001</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -93,7 +92,6 @@
     <cbc:InvoicedQuantity unitCode="LTR">96</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">16214.40</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>BMB 95</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0002</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -109,7 +107,6 @@
     <cbc:InvoicedQuantity unitCode="H87">4</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">5160.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>AdBlue tečnost 10L</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0003</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -125,7 +122,6 @@
     <cbc:InvoicedQuantity unitCode="H87">3</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">4500.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Pranje kombija - spoljno</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0004</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
@@ -141,7 +137,6 @@
     <cbc:InvoicedQuantity unitCode="H87">2</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="RSD">9780.00</cbc:LineExtensionAmount>
     <cac:Item>
-      
       <cbc:Name>Motorno ulje 5W-30 4L</cbc:Name>
       <cac:SellersItemIdentification><cbc:ID>ART-0005</cbc:ID></cac:SellersItemIdentification>
       <cac:ClassifiedTaxCategory>
