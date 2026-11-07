@@ -1,0 +1,13 @@
+.git
+.github
+.venv
+venv
+.env
+.env.*
+apikeys.txt
+*.db
+__pycache__
+.pytest_cache
+tests
+scripts
+eval_results.md
