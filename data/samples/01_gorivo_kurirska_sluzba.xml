@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IZMIŠLJENA FAKTURA ZA DEMONSTRACIJU. Sve firme, PIB-ovi, osobe i računi su izmišljeni. -->
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:mfin.gov.rs:srbdt:2022</cbc:CustomizationID>
+  <cbc:ID>GS-2026-00417</cbc:ID>
+  <cbc:IssueDate>2026-10-03</cbc:IssueDate>
+  <cbc:DueDate>2026-10-18</cbc:DueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+  <cbc:DocumentCurrencyCode>RSD</cbc:DocumentCurrencyCode>
+  <cac:InvoicePeriod><cbc:DescriptionCode>35</cbc:DescriptionCode></cac:InvoicePeriod>
+  <cac:AccountingSupplierParty>
+    <cac:Party>
+      <cbc:EndpointID schemeID="9948">201000011</cbc:EndpointID>
+      <cac:PartyName><cbc:Name>Benzinska stanica Kosmaj DOO</cbc:Name></cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>Kragujevački put 88</cbc:StreetName>
+        <cbc:CityName>Mladenovac</cbc:CityName>
+        <cac:Country><cbc:IdentificationCode>RS</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>RS201000011</cbc:CompanyID>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>Benzinska stanica Kosmaj DOO</cbc:RegistrationName>
+        <cbc:CompanyID>22000011</cbc:CompanyID>
+      </cac:PartyLegalEntity>
+      <cac:Contact><cbc:Name>Dragan Stojković</cbc:Name><cbc:ElectronicMail>fakture@bs-kosmaj.example</cbc:ElectronicMail></cac:Contact>
+    </cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty>
+    <cac:Party>
+      <cbc:EndpointID schemeID="9948">101000001</cbc:EndpointID>
+      <cac:PartyName><cbc:Name>Brzi Kurir DOO</cbc:Name></cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>Bulevar oslobođenja 12</cbc:StreetName>
+        <cbc:CityName>Novi Sad</cbc:CityName>
+        <cac:Country><cbc:IdentificationCode>RS</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>RS101000001</cbc:CompanyID>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>Brzi Kurir DOO</cbc:RegistrationName>
+        <cbc:CompanyID>21000001</cbc:CompanyID>
+      </cac:PartyLegalEntity>
+      <cac:Contact><cbc:Name>Ana Ilić</cbc:Name></cac:Contact>
+    </cac:Party>
+  </cac:AccountingCustomerParty>
+  <cac:PaymentMeans>
+    <cbc:PaymentMeansCode>30</cbc:PaymentMeansCode>
+    <cac:PayeeFinancialAccount><cbc:ID>160-0000000417001-11</cbc:ID></cac:PayeeFinancialAccount>
+  </cac:PaymentMeans>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="RSD">21362.13</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="RSD">106810.65</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="RSD">21362.13</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="RSD">106810.65</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="RSD">106810.65</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="RSD">128172.78</cbc:TaxInclusiveAmount>
+    <cbc:PayableAmount currencyID="RSD">128172.78</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="LTR">412.5</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">71156.25</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Evrodizel</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0001</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">172.50</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>2</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="LTR">96</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">16214.40</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>BMB 95</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0002</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">168.90</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>3</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">4</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">5160.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>AdBlue tečnost 10L</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0003</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">1290.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>4</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">3</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">4500.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Pranje kombija - spoljno</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0004</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">1500.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>5</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">9780.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Motorno ulje 5W-30 4L</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0005</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">4890.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+</Invoice>

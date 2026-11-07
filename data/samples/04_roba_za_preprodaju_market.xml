@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IZMIŠLJENA FAKTURA ZA DEMONSTRACIJU. Sve firme, PIB-ovi, osobe i računi su izmišljeni. -->
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:mfin.gov.rs:srbdt:2022</cbc:CustomizationID>
+  <cbc:ID>VD-55821</cbc:ID>
+  <cbc:IssueDate>2026-10-12</cbc:IssueDate>
+  <cbc:DueDate>2026-10-27</cbc:DueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+  <cbc:DocumentCurrencyCode>RSD</cbc:DocumentCurrencyCode>
+  <cac:InvoicePeriod><cbc:DescriptionCode>35</cbc:DescriptionCode></cac:InvoicePeriod>
+  <cac:AccountingSupplierParty>
+    <cac:Party>
+      <cbc:EndpointID schemeID="9948">204000044</cbc:EndpointID>
+      <cac:PartyName><cbc:Name>Veleprodaja Dunav DOO</cbc:Name></cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>Industrijska zona bb</cbc:StreetName>
+        <cbc:CityName>Smederevo</cbc:CityName>
+        <cac:Country><cbc:IdentificationCode>RS</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>RS204000044</cbc:CompanyID>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>Veleprodaja Dunav DOO</cbc:RegistrationName>
+        <cbc:CompanyID>22000044</cbc:CompanyID>
+      </cac:PartyLegalEntity>
+      <cac:Contact><cbc:Name>Nenad Popović</cbc:Name><cbc:ElectronicMail>office@vp-dunav.example</cbc:ElectronicMail></cac:Contact>
+    </cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty>
+    <cac:Party>
+      <cbc:EndpointID schemeID="9948">103000003</cbc:EndpointID>
+      <cac:PartyName><cbc:Name>Market Kod Ćoška DOO</cbc:Name></cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>Kralja Petra 21</cbc:StreetName>
+        <cbc:CityName>Kragujevac</cbc:CityName>
+        <cac:Country><cbc:IdentificationCode>RS</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>RS103000003</cbc:CompanyID>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>Market Kod Ćoška DOO</cbc:RegistrationName>
+        <cbc:CompanyID>21000003</cbc:CompanyID>
+      </cac:PartyLegalEntity>
+      <cac:Contact><cbc:Name>Vesna Đorđević</cbc:Name></cac:Contact>
+    </cac:Party>
+  </cac:AccountingCustomerParty>
+  <cac:PaymentMeans>
+    <cbc:PaymentMeansCode>30</cbc:PaymentMeansCode>
+    <cac:PayeeFinancialAccount><cbc:ID>325-0000005582104-44</cbc:ID></cac:PayeeFinancialAccount>
+  </cac:PaymentMeans>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="RSD">11184.80</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="RSD">36000.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="RSD">3600.00</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>10</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="RSD">37924.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="RSD">7584.80</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="RSD">73924.00</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="RSD">73924.00</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="RSD">85108.80</cbc:TaxInclusiveAmount>
+    <cbc:PayableAmount currencyID="RSD">85108.80</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">240</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">28320.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Mleko 2,8% m.m. 1L</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0001</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>10</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">118.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>2</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">120</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">7680.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Hleb beli 500g</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0002</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>10</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">64.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>3</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">96</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">13344.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Sok od jabuke 1L</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0003</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">139.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>4</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">40</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">13680.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Mineralna voda 1,5L, pakovanje 6 kom</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0004</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">342.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>5</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">6400.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Kese PVC sa logom, 1000 kom</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0005</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">3200.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>6</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="C62">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">4500.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Prevoz robe do maloprodajnog objekta</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0006</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">4500.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+</Invoice>

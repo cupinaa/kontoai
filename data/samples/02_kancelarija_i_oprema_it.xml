@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IZMIŠLJENA FAKTURA ZA DEMONSTRACIJU. Sve firme, PIB-ovi, osobe i računi su izmišljeni. -->
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:mfin.gov.rs:srbdt:2022</cbc:CustomizationID>
+  <cbc:ID>BP-1187/2026</cbc:ID>
+  <cbc:IssueDate>2026-10-08</cbc:IssueDate>
+  <cbc:DueDate>2026-10-23</cbc:DueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+  <cbc:DocumentCurrencyCode>RSD</cbc:DocumentCurrencyCode>
+  <cac:InvoicePeriod><cbc:DescriptionCode>35</cbc:DescriptionCode></cac:InvoicePeriod>
+  <cac:AccountingSupplierParty>
+    <cac:Party>
+      <cbc:EndpointID schemeID="9948">202000022</cbc:EndpointID>
+      <cac:PartyName><cbc:Name>Biroprom Plus DOO</cbc:Name></cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>Cara Dušana 140</cbc:StreetName>
+        <cbc:CityName>Zemun</cbc:CityName>
+        <cac:Country><cbc:IdentificationCode>RS</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>RS202000022</cbc:CompanyID>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>Biroprom Plus DOO</cbc:RegistrationName>
+        <cbc:CompanyID>22000022</cbc:CompanyID>
+      </cac:PartyLegalEntity>
+      <cac:Contact><cbc:Name>Milica Savić</cbc:Name><cbc:ElectronicMail>prodaja@biroprom.example</cbc:ElectronicMail></cac:Contact>
+    </cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty>
+    <cac:Party>
+      <cbc:EndpointID schemeID="9948">102000002</cbc:EndpointID>
+      <cac:PartyName><cbc:Name>Kod Studio DOO</cbc:Name></cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>Nemanjina 4</cbc:StreetName>
+        <cbc:CityName>Beograd</cbc:CityName>
+        <cac:Country><cbc:IdentificationCode>RS</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>RS102000002</cbc:CompanyID>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>Kod Studio DOO</cbc:RegistrationName>
+        <cbc:CompanyID>21000002</cbc:CompanyID>
+      </cac:PartyLegalEntity>
+      <cac:Contact><cbc:Name>Petar Nikolić</cbc:Name></cac:Contact>
+    </cac:Party>
+  </cac:AccountingCustomerParty>
+  <cac:PaymentMeans>
+    <cbc:PaymentMeansCode>30</cbc:PaymentMeansCode>
+    <cac:PayeeFinancialAccount><cbc:ID>205-0000001187002-22</cbc:ID></cac:PayeeFinancialAccount>
+  </cac:PaymentMeans>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="RSD">54066.00</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="RSD">270330.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="RSD">54066.00</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="RSD">270330.00</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="RSD">270330.00</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="RSD">324396.00</cbc:TaxInclusiveAmount>
+    <cbc:PayableAmount currencyID="RSD">324396.00</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">20</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">10400.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Papir A4 80g, 500 listova</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0001</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">520.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>2</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">3</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">20700.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Toner HP 85A</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0002</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">6900.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>3</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">224000.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Laptop Lenovo ThinkPad E14 Gen 6, za zaposlenog Jovana Jovanovića</cbc:Description>
+      <cbc:Name>Laptop Lenovo ThinkPad E14 Gen 6</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0003</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">112000.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>4</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">4</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">6600.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Bežični miš Logitech M185</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0004</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">1650.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>5</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">30</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">2850.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Fascikle sa mehanizmom</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0005</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">95.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>6</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="RSD">5780.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      
+      <cbc:Name>Kafa u zrnu 1kg</cbc:Name>
+      <cac:SellersItemIdentification><cbc:ID>ART-0006</cbc:ID></cac:SellersItemIdentification>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>20</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="RSD">2890.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+</Invoice>

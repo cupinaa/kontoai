@@ -1,0 +1,52 @@
+{
+  "_napomena": "IZMIŠLJENI PODACI. Očekivana konta ('expected_konto') je pripremio autor projekta i NISU potvrđena — pre nego što se rezultati evaluacije uzmu kao merodavni, očekivana konta mora da pregleda i potvrdi knjigovođa. Neke stavke opravdano mogu ići na više konta u zavisnosti od računovodstvene politike klijenta.",
+  "_note": "FICTIONAL DATA. Expected accounts were prepared by the author and MUST be confirmed by an accountant.",
+  "clients": {
+    "101000001": "Kurirske usluge i dostava paketa",
+    "102000002": "Razvoj softvera po narudžbini",
+    "103000003": "Maloprodaja prehrambenih proizvoda",
+    "104000004": "Proizvodnja hleba i peciva",
+    "105000005": "Trgovina na malo motornim gorivima"
+  },
+  "history_seed": [
+    {"client_id": "101000001", "item_name": "Servis kombija - mali servis", "supplier_name": "AutoServis Zvezda DOO", "supplier_pib": "301000001", "konto": "532"},
+    {"client_id": "102000002", "item_name": "Usluga hostinga servera", "supplier_name": "CloudHost Srbija DOO", "supplier_pib": "301000002", "konto": "539"},
+    {"client_id": "103000003", "item_name": "Mleko 2,8% 1L", "supplier_name": "Mlekara Ravnica DOO", "supplier_pib": "301000003", "konto": "134"},
+    {"client_id": "103000003", "item_name": "Sir gauda 1kg", "supplier_name": "Mlekara Ravnica DOO", "supplier_pib": "301000003", "konto": "134"},
+    {"client_id": "104000004", "item_name": "Brašno T-500 25kg", "supplier_name": "Mlin Žito DOO", "supplier_pib": "301000004", "konto": "101"}
+  ],
+  "items": [
+    {"id": 1,  "client_id": "101000001", "supplier_name": "AutoServis Zvezda DOO", "supplier_pib": "301000001", "name": "Servis kombija - mali servis", "quantity": 1, "unit": "C62", "amount": 18500, "expected_konto": "532", "expected_source": "history"},
+    {"id": 2,  "client_id": "102000002", "supplier_name": "CloudHost Srbija DOO", "supplier_pib": "301000002", "name": "Usluga hostinga servera", "quantity": 1, "unit": "MON", "amount": 7200, "expected_konto": "539", "expected_source": "history"},
+    {"id": 3,  "client_id": "103000003", "supplier_name": "Mlekara Ravnica DOO", "supplier_pib": "301000003", "name": "Jogurt 1,5% 1kg", "quantity": 120, "unit": "H87", "amount": 15600, "expected_konto": "134", "expected_source": "history"},
+    {"id": 4,  "client_id": "103000003", "supplier_name": "Mlekara Ravnica DOO", "supplier_pib": "301000003", "name": "Kiselo mleko 0,5L", "quantity": 200, "unit": "H87", "amount": 14000, "expected_konto": "134", "expected_source": "history"},
+    {"id": 5,  "client_id": "104000004", "supplier_name": "Mlin Žito DOO", "supplier_pib": "301000004", "name": "Brašno T-500 25kg", "quantity": 40, "unit": "H87", "amount": 52000, "expected_konto": "101", "expected_source": "history"},
+    {"id": 6,  "client_id": "104000004", "supplier_name": "Mlin Žito DOO", "supplier_pib": "301000004", "name": "Brašno T-400 25kg", "quantity": 20, "unit": "H87", "amount": 27000, "expected_konto": "101", "expected_source": "history"},
+
+    {"id": 7,  "client_id": "101000001", "supplier_name": "Benzinska stanica Kosmaj DOO", "supplier_pib": "201000011", "name": "Evrodizel", "quantity": 380, "unit": "LTR", "amount": 65550, "expected_konto": "513", "expected_source": "rule"},
+    {"id": 8,  "client_id": "101000001", "supplier_name": "Benzinska stanica Kosmaj DOO", "supplier_pib": "201000011", "name": "BMB 95", "quantity": 60, "unit": "LTR", "amount": 10134, "expected_konto": "513", "expected_source": "rule"},
+    {"id": 9,  "client_id": "102000002", "supplier_name": "Poslovni Centar Vračar DOO", "supplier_pib": "203000033", "name": "Zakup poslovnog prostora za novembar", "quantity": 1, "unit": "MON", "amount": 185000, "expected_konto": "533", "expected_source": "rule"},
+    {"id": 10, "client_id": "102000002", "supplier_name": "Elektrodistribucija Grad DOO", "supplier_pib": "302000010", "name": "Električna energija za oktobar", "quantity": 1, "unit": "C62", "amount": 14320, "expected_konto": "513", "expected_source": "rule"},
+    {"id": 11, "client_id": "101000001", "supplier_name": "TeleNet Srbija DOO", "supplier_pib": "205000055", "name": "Mobilna telefonija - mesečna pretplata", "quantity": 8, "unit": "MON", "amount": 15920, "expected_konto": "531", "expected_source": "rule"},
+    {"id": 12, "client_id": "102000002", "supplier_name": "TeleNet Srbija DOO", "supplier_pib": "205000055", "name": "Internet 500 Mbps", "quantity": 1, "unit": "MON", "amount": 3490, "expected_konto": "531", "expected_source": "rule"},
+    {"id": 13, "client_id": "104000004", "supplier_name": "Biroprom Plus DOO", "supplier_pib": "202000022", "name": "Papir A4 80g, 500 listova", "quantity": 10, "unit": "H87", "amount": 5200, "expected_konto": "512", "expected_source": "rule"},
+    {"id": 14, "client_id": "103000003", "supplier_name": "Banka Primer AD", "supplier_pib": "302000014", "name": "Provizija banke za platni promet", "quantity": 1, "unit": "C62", "amount": 2350, "expected_konto": "553", "expected_source": "rule"},
+    {"id": 15, "client_id": "104000004", "supplier_name": "Osiguranje Sigurnost AD", "supplier_pib": "302000015", "name": "Polisa osiguranja imovine 2027", "quantity": 1, "unit": "C62", "amount": 48000, "expected_konto": "552", "expected_source": "rule"},
+    {"id": 16, "client_id": "102000002", "supplier_name": "Biro Bilans DOO", "supplier_pib": "302000016", "name": "Knjigovodstvene usluge za oktobar", "quantity": 1, "unit": "MON", "amount": 30000, "expected_konto": "550", "expected_source": "rule"},
+    {"id": 17, "client_id": "103000003", "supplier_name": "Logistika Sever DOO", "supplier_pib": "302000017", "name": "Zakup magacinskog prostora", "quantity": 1, "unit": "MON", "amount": 60000, "expected_konto": "533", "expected_source": "rule"},
+    {"id": 18, "client_id": "104000004", "supplier_name": "Biroprom Plus DOO", "supplier_pib": "202000022", "name": "Toner HP 85A", "quantity": 2, "unit": "H87", "amount": 13800, "expected_konto": "512", "expected_source": "rule"},
+
+    {"id": 19, "client_id": "102000002", "supplier_name": "Biroprom Plus DOO", "supplier_pib": "202000022", "name": "Laptop Dell Latitude 5440", "quantity": 1, "unit": "H87", "amount": 145000, "expected_konto": "023", "expected_source": "llm"},
+    {"id": 20, "client_id": "102000002", "supplier_name": "JKP Gradska Čistoća", "supplier_pib": "302000020", "name": "Komunalne usluge - odvoz smeća", "quantity": 1, "unit": "MON", "amount": 2900, "expected_konto": "539", "expected_source": "llm"},
+    {"id": 21, "client_id": "103000003", "supplier_name": "Pića Distribucija DOO", "supplier_pib": "302000021", "name": "Gazirani sok kola 0,5L, pakovanje 12 kom", "quantity": 50, "unit": "H87", "amount": 39000, "expected_konto": "134", "expected_source": "llm"},
+    {"id": 22, "client_id": "103000003", "supplier_name": "Transport Brzi Točak DOO", "supplier_pib": "302000022", "name": "Prevoz robe kamionom Beograd - Kragujevac", "quantity": 1, "unit": "C62", "amount": 12000, "expected_konto": "531", "expected_source": "llm"},
+    {"id": 23, "client_id": "105000005", "supplier_name": "Naftni Promet Istok DOO", "supplier_pib": "302000023", "name": "Evrodizel - nabavka za maloprodaju", "quantity": 20000, "unit": "LTR", "amount": 3100000, "expected_konto": "134", "expected_source": "llm"},
+    {"id": 24, "client_id": "104000004", "supplier_name": "Pekarski Svet DOO", "supplier_pib": "302000024", "name": "Kvasac svež 1kg", "quantity": 30, "unit": "H87", "amount": 6600, "expected_konto": "101", "expected_source": "llm"},
+    {"id": 25, "client_id": "104000004", "supplier_name": "Termo Servis DOO", "supplier_pib": "302000025", "name": "Popravka peći za pečenje", "quantity": 1, "unit": "C62", "amount": 22000, "expected_konto": "532", "expected_source": "llm"},
+    {"id": 26, "client_id": "102000002", "supplier_name": "Ekspres Pošiljke DOO", "supplier_pib": "302000026", "name": "Kurirska dostava dokumenata", "quantity": 5, "unit": "H87", "amount": 2500, "expected_konto": "531", "expected_source": "llm"},
+    {"id": 27, "client_id": "102000002", "supplier_name": "Udruženje IT Kompanija", "supplier_pib": "302000027", "name": "Godišnja članarina u udruženju IT kompanija", "quantity": 1, "unit": "C62", "amount": 24000, "expected_konto": "554", "expected_source": "llm"},
+    {"id": 28, "client_id": "101000001", "supplier_name": "Kafe Bar Centar DOO", "supplier_pib": "302000028", "name": "Kafa i sokovi za poslovni sastanak sa partnerima", "quantity": 1, "unit": "C62", "amount": 3400, "expected_konto": "551", "expected_source": "llm"},
+    {"id": 29, "client_id": "103000003", "supplier_name": "Higijena Plus DOO", "supplier_pib": "302000029", "name": "Sredstva za čišćenje prostorija", "quantity": 12, "unit": "H87", "amount": 8400, "expected_konto": "512", "expected_source": "llm"},
+    {"id": 30, "client_id": "102000002", "supplier_name": "Advokatska kancelarija Primer", "supplier_pib": "302000030", "name": "Advokatske usluge - izrada ugovora", "quantity": 1, "unit": "C62", "amount": 40000, "expected_konto": "550", "expected_source": "llm"}
+  ]
+}

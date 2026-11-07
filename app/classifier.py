@@ -29,7 +29,11 @@ class ItemContext:
     @property
     def text(self) -> str:
         item = self.item
-        return f"{item.name} — {item.description}" if item.description else item.name
+        if not item.description:
+            return item.name
+        if item.name.casefold() in item.description.casefold():
+            return item.description
+        return f"{item.name} — {item.description}"
 
 
 class Classifier:
