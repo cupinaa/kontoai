@@ -89,23 +89,44 @@ Masking is pattern-based. It covers the identifiers listed above, but it cannot 
 
 ## Evaluation
 
-`scripts/evaluate.py` runs the 30 items in [`data/eval/dataset.json`](data/eval/dataset.json) through the full pipeline. History is seeded into a temporary database, so the real one is never touched. The script reports overall accuracy, accuracy by decision source, the number of items flagged for review and the average time per item. The full report is in [`eval_results.md`](eval_results.md).
+> [!WARNING]
+> **The evaluation dataset is synthetic, and its expected accounts are not verified.** I wrote the 50 items, their expected accounts and the keyword rules myself. A high score on this dataset is therefore **not** a measure of real accuracy. In particular, the 100% on the easy history and rule items is true by construction. The expected accounts still need to be verified by an accountant. A real measurement needs invoices and confirmed postings from an accounting office.
 
-Latest run (history + rules only, no LLM key configured):
+`scripts/evaluate.py` runs [`data/eval/dataset.json`](data/eval/dataset.json) through the full pipeline. History is seeded into a temporary database, so the real one is never touched. The full report is in [`eval_results.md`](eval_results.md). The dataset has two parts:
 
-| Source | Items | Accuracy |
-|---|---|---|
-| history | 6 | 100% |
-| rules | 12 | 100% |
-| not decided (would go to the LLM) | 12 | — (all 12 flagged for review) |
-| **Overall** | **30** | **60%**, and 100% of the auto-accepted items were correct |
+- **30 easy items.** The descriptions are clear. Their history and rule items were written together with the rules.
+- **20 hard items.** These were written after the rules, and the rules were not changed to fit them. There are four kinds:
+  - ambiguous descriptions (*"Usluga"*, *"Materijal po ugovoru br. 14/2026"*, *"Roba po otpremnici 4471"*);
+  - abbreviations as they appear on invoices (*"EURO DIZ."*, *"Usl. odrz. SW 10/26"*, *"Tr. PP za 10/26"*);
+  - items whose account depends on the client's activity. For example, the same *"Laptop HP 250 G9"* is a fixed asset (023) for a grocery store but goods for resale (134) for a computer shop. Fuel for a petrol station's own car is an expense (513), not goods;
+  - items that no rule covers (subcontracted works, trade-fair stand, translation, training).
 
-Average time per item without the LLM is about 0.5 ms.
+Besides accuracy, the report counts **silent errors**: wrong accounts that were *not* flagged for review. This is the number that matters most. A flagged mistake costs the accountant one click, but a silent one ends up in the books.
 
-How to read these numbers:
-- The dataset is small and fictional. Its history and rule items were written together with the rules, so 100% on those paths shows that the pipeline is wired correctly. It does not measure real-world accuracy.
-- The 12 LLM items are the hard cases. They include fuel bought by a petrol station (goods, not an expense), a laptop as a fixed asset, entertainment of business partners, and memberships.
-- To measure the LLM path, set `GEMINI_API_KEY` and run `python scripts/evaluate.py`.
+**Without the LLM** (history and rules only, the complete 50-item run in `eval_results.md`):
+
+| Group | Items | Correct | Flagged for review | Silent errors |
+|---|---|---|---|---|
+| Easy | 30 | 18 (60%) | 12 | 0 |
+| Hard | 20 | 0 (0%) | 20 | 0 |
+| **All** | **50** | **18 (36%)** | **32** | **0** |
+
+History and rules decide 18 of the 30 easy items, all correctly. They decide none of the hard items. That is the intended result: a keyword rule never caught a hard item by mistake, so every item they could not decide goes on to the LLM.
+
+**With Gemini.** Every answer Gemini returned on the easy items was correct, but no complete run has been possible yet:
+- The free-tier API key allows 5 requests per minute and **20 requests per day per model**.
+- One full run needs 32 LLM calls (12 easy and 20 hard items).
+- On 2026-11-07 the runs on `gemini-3.6-flash` and `gemini-3.8-flash` returned 20 answers on the 12 easy LLM items, and all 20 were correct.
+- The remaining calls failed because of quota limits or temporary server errors (503/504). Those items were flagged for review, not guessed.
+- Because no run was complete, I am not publishing a Gemini accuracy number.
+
+To reproduce, set `GEMINI_API_KEY` and run:
+
+```powershell
+python scripts/evaluate.py --rpm 4    # stays under 5 requests/minute
+```
+
+Successful answers are cached in `.eval_cache/`. Running the command again on another day only calls the API for the items that are still missing.
 
 ## Running locally (Windows / PowerShell)
 
@@ -201,7 +222,16 @@ The response `status` is `confirmed` if the accountant accepted the suggestion a
 
 ## Tests
 
-`pytest` runs 92 tests covering XML parsing (including XXE rejection), rules, history, masking, rejection of accounts outside the chart, the Gemini provider (against a fake SDK client) and all API endpoints, including the confirm-and-learn loop. Gemini is mocked everywhere: the tests need neither internet access nor an API key, and a fixture fails any test that tries to create a real client. GitHub Actions runs the suite on every push.
+`pytest` runs 97 tests covering:
+- XML parsing, including XXE rejection;
+- rules, history and masking;
+- rejection of accounts outside the chart;
+- the Gemini provider against a fake SDK client, including retries on rate limits and server errors;
+- all API endpoints, including the confirm-and-learn loop.
+
+Gemini is mocked everywhere. The tests need neither internet access nor an API key, and a fixture fails any test that tries to create a real client.
+
+GitHub Actions runs two jobs on every push. The first runs the test suite. The second builds the Docker image, starts the container, checks `/health` and classifies a sample invoice.
 
 ## Limitations
 
@@ -209,7 +239,8 @@ The response `status` is `confirmed` if the accountant accepted the suggestion a
 - **VAT is not handled.** The system suggests the cost/asset account for the net amount. Input VAT (*prethodni porez*, group 27), the supplier account (435) and the full posting entry are out of scope.
 - **Accounting policy matters.** Whether a laptop is a fixed asset (023) or small inventory, and whether goods are booked at wholesale or retail, depends on the client's policy. The system cannot know this until the accountant confirms a few decisions.
 - **Masking is pattern-based.** Names that appear without a marker word in free text may not be detected. In production this should be combined with an NER model and a review of what is sent.
-- **Fictional evaluation data.** The 30-item dataset is small, fictional, and its expected accounts have not been verified by an accountant.
+- **Synthetic evaluation data.** The 50-item dataset is small and fictional. Its items, expected accounts and rules were written by the same author, and the expected accounts have not been verified by an accountant.
+- **Free-tier API limits.** The Gemini free tier (5 requests/minute, 20 requests/day per model) is enough for a demo, not for production volumes. The provider retries on rate limits and transient 5xx errors; items it still cannot get an answer for are flagged for review.
 - **Prototype scope.** There is no authentication or multi-user access control, history matching is exact (no fuzzy matching), and items are sent to the LLM one at a time.
 
 ## Possible next steps

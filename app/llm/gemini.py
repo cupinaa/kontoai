@@ -64,7 +64,7 @@ class GeminiProvider(LLMProvider):
         model: str,
         *,
         client: Any = None,
-        timeout_ms: int = 30_000,
+        timeout_ms: int = 90_000,  # thinking models can need well over 30 s; shorter values cause 504s
         max_retries: int = 3,
         max_retry_wait: float = 65.0,
         sleep: Callable[[float], None] = time.sleep,
