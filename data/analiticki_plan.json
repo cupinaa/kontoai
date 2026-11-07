@@ -1,0 +1,33 @@
+{
+  "_napomena": "PROBNI analitički kontni plan. Napravljen iz četvorocifrenih konta koje je knjigovođa upisala u data/review/slepa_provera.xlsx i data/review/nove_stavke.xlsx; nazive je izveo autor iz opisa stavki i napomena knjigovođe. Plan je PRIVREMEN i zameniće ga izvoz analitičkog kontnog plana iz programa Iris (python scripts/import_analytic_plan.py). Ne koristiti za stvarno knjiženje.",
+  "_note": "TRIAL analytic chart of accounts, derived from the accountant's answers. Temporary: to be replaced by the export from the Iris accounting software.",
+  "status": "probni",
+  "clients": {
+    "K001": {
+      "delatnost": "proizvodnja dijetetskih proizvoda",
+      "izvor": "probni plan iz odgovora knjigovođe (2026-11-07)",
+      "konta": [
+        {"konto": "5110", "naziv": "Troškovi materijala za izradu — sirovine", "probni": true, "izvor": "slepa provera #24 (Kvasac svež 1kg)"},
+        {"konto": "5112", "naziv": "Troškovi materijala za izradu — toner i potrošni materijal", "probni": true, "izvor": "slepa provera #18 (Toner HP 85A)"},
+        {"konto": "5120", "naziv": "Troškovi ostalog materijala — računarska oprema", "probni": true, "izvor": "slepa provera #19 (Laptop Dell Latitude 5440)"},
+        {"konto": "5133", "naziv": "Troškovi goriva i energije — gorivo i električna energija", "probni": true, "izvor": "slepa provera #23 (Evrodizel); nove stavke #3 (potrošnja električne energije za prethodni mesec)"},
+        {"konto": "5150", "naziv": "Troškovi jednokratnog otpisa alata i inventara (vek trajanja kraći od godinu dana)", "probni": true, "izvor": "nove stavke #4 (napomena: jednokratni otpis alata čiji je vek trajanja manji od godinu dana)"},
+        {"konto": "5311", "naziv": "Troškovi poštanskih usluga", "probni": true, "izvor": "nove stavke #1 (troškovi poštanskih usluga; slanje paketa kupcu)"},
+        {"konto": "5315", "naziv": "Troškovi interneta", "probni": true, "izvor": "slepa provera #12 (Internet 500 Mbps)"},
+        {"konto": "5321", "naziv": "Troškovi održavanja — popravke opreme", "probni": true, "izvor": "slepa provera #25 (Popravka peći za pečenje)"},
+        {"konto": "5330", "naziv": "Troškovi zakupa poslovnog prostora", "probni": true, "izvor": "nove stavke #2 (zakup poslovnog prostora)"},
+        {"konto": "5331", "naziv": "Troškovi zakupa magacinskog prostora", "probni": true, "izvor": "slepa provera #17 (Zakup magacinskog prostora)"},
+        {"konto": "5340", "naziv": "Troškovi zakupa sajamskog prostora", "probni": true, "izvor": "nove stavke #5 (plaćanje zakupa za izlaganje na sajmu)"},
+        {"konto": "5390", "naziv": "Troškovi komunalnih usluga", "probni": true, "izvor": "slepa provera #20 (Komunalne usluge - odvoz smeća); nove stavke #6 (plaćanje usluga komunalnom preduzeću)"},
+        {"konto": "5391", "naziv": "Troškovi zaštite na radu", "probni": true, "izvor": "nove stavke #12 (nabavka maski i rukavica; zaštita na radu)"},
+        {"konto": "5501", "naziv": "Troškovi pravnih (advokatskih) usluga", "probni": true, "izvor": "slepa provera #30 (Advokatske usluge); nove stavke #7 (plaćanje pravnih usluga)"},
+        {"konto": "5503", "naziv": "Troškovi zdravstvenih usluga — sanitarni pregledi zaposlenih", "probni": true, "izvor": "nove stavke #8 (sanitarni pregled zaposlenih)"},
+        {"konto": "5510", "naziv": "Troškovi reprezentacije — poslovni ručkovi i sastanci", "probni": true, "izvor": "slepa provera #28 (Kafa i sokovi za poslovni sastanak); nove stavke #9 (poslovni ručak sa klijentima)"},
+        {"konto": "5530", "naziv": "Troškovi bankarskih provizija", "probni": true, "izvor": "slepa provera #14 (Provizija banke); nove stavke #10 (troškovi bankarskih provizija)"}
+      ],
+      "izostavljeno": [
+        {"konto": "5590", "razlog": "Stavka 'oglasavnje u casopisu' je označena kao greška knjigovođe i čeka ispravku (data/review/odluke.json)."}
+      ]
+    }
+  }
+}
