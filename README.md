@@ -2,15 +2,25 @@
 
 [![CI](https://github.com/cupinaa/kontoai/actions/workflows/ci.yml/badge.svg)](https://github.com/cupinaa/kontoai/actions/workflows/ci.yml)
 
-KontoAI suggests an account from the Serbian chart of accounts (*kontni okvir*) for every line item of an incoming e-invoice. The accountant then confirms or corrects each suggestion, and the system learns from those decisions.
+KontoAI helps an accountant post incoming e-invoices. For every line item it proposes the **analytic account** (the 4th digit and beyond) from the client's own chart of accounts. If needed, it also proposes the 3-digit synthetic account from the Serbian chart of accounts (*kontni okvir*). The accountant confirms or corrects each suggestion with one click, and the system learns from those confirmations.
 
-> ⚠️ **The chart of accounts in this repository has not been verified.** [`data/kontni_okvir.json`](data/kontni_okvir.json) is a hand-picked subset of 3-digit accounts from the *Pravilnik o kontnom okviru i sadržini računa u kontnom okviru za privredna društva, zadruge i preduzetnike* (Sl. glasnik RS 89/2020). A licensed accountant must review it before any real use. The same applies to the expected accounts in the evaluation dataset.
+> ⚠️ **Two data files in this repository are not verified and are temporary.**
+> - [`data/kontni_okvir.json`](data/kontni_okvir.json) is a hand-picked subset of 3-digit accounts from the *Pravilnik o kontnom okviru* (Sl. glasnik RS 89/2020), and it still needs an accountant's sign-off.
+> - [`data/analiticki_plan.json`](data/analiticki_plan.json) is a **trial analytic plan**. It was built from the accountant's own review answers and **will be replaced by the export from the accounting software (Iris)**.
 
 ## The problem
 
-Since the introduction of SEF (*Sistem e-faktura*), incoming invoices arrive as structured UBL 2.1 XML, so nobody has to retype them. Posting them still has to be done by hand. For every line (fuel, rent, a laptop, goods for resale…) the accountant decides which account it belongs to, and that decision depends on what the client's business does. Fuel is an expense (513) for a courier company, but it is goods for resale (134) for a petrol station.
+Since the introduction of SEF (*Sistem e-faktura*), incoming invoices arrive as structured UBL 2.1 XML, so nobody has to retype them. The accountant's software (in our case Iris) already proposes the **3-digit synthetic account** for each line.
 
-Most of this work repeats: the same suppliers and the same items come in every month. KontoAI handles the repeated and obvious cases automatically. It sends only the genuinely new items to an LLM, and the accountant always makes the final call.
+**The hard part is the analytic level.** The fourth digit (e.g. 533**0** office rent vs. 533**1** warehouse rent) is not prescribed by the Pravilnik. Every company defines its own analytic chart of accounts, so a generic rule cannot know it. Choosing the analytic account means remembering how *this* client posts *this* supplier and *this* kind of item. The accountant does it by hand, line by line, every month.
+
+KontoAI focuses on that step:
+- **Learning from confirmations.** An analytic account the accountant confirmed once is suggested again for the same item or the same supplier.
+- **Offering only valid choices.** It offers only the analytic accounts that exist in the client's plan below the chosen 3-digit account.
+- **LLM only where needed.** It asks an LLM only when there is no history and the plan has several options.
+- **The accountant decides.** When it is not sure, it preselects nothing and leaves the choice to the accountant.
+
+The synthetic step (history → rules → LLM) is still available. It is used when the 3-digit account is not supplied with the item, for example for invoices coming directly from SEF.
 
 ## How it works
 
@@ -27,11 +37,26 @@ flowchart LR
     G -- yes --> R
     G -- no --> H[Reject, flag for<br/>manual review]
     H --> R
-    R --> I[Accountant confirms<br/>or corrects]
+    A -. 3-digit account given<br/>e.g. by Iris .-> R
+    R[3-digit account] --> P{Client's analytic plan:<br/>accounts below it}
+    P -- none --> X[Flag: no analytic<br/>below this account]
+    P -- options --> AH{History: same item<br/>or same supplier?}
+    AH -- match --> S[Analytic suggestion]
+    AH -- no --> AO{Only one option?}
+    AO -- yes --> S
+    AO -- no --> AL[LLM chooses from<br/>the offered list only]
+    AL --> AV{In the list and<br/>confident enough?}
+    AV -- yes --> S
+    AV -- no --> AK[Nothing preselected:<br/>accountant chooses]
+    S --> I[Accountant confirms<br/>or corrects - one click]
+    AK --> I
+    I -- saved to history --> AH
     I -- saved to history --> C
 ```
 
-Every item goes through the stages in order and stops at the first one that decides:
+### Synthetic (3-digit) account
+
+If the item already carries a 3-digit account (`given_konto`, e.g. proposed by Iris), this step is skipped and the account is used as given (`source: input`). Otherwise every item goes through the stages in order and stops at the first one that decides:
 
 | # | Stage | Confidence | Notes |
 |---|---|---|---|
@@ -40,9 +65,27 @@ Every item goes through the stages in order and stops at the first one that deci
 | 3 | **LLM** (Gemini) | from the model | Gets only the masked item text, the client's activity and the list of allowed accounts. Output is constrained by a JSON schema. |
 | 4 | **Validation** | — | An account that is not in the chart is rejected and the item is flagged. The schema `enum` already restricts the model; the validation is a second layer that applies to any provider. |
 
-Every result contains `konto`, `konto_name`, `source` (`history` / `rule` / `llm` / `none`), `confidence`, `explanation` (in Serbian) and `needs_review`. `needs_review` is true when confidence is below `REVIEW_THRESHOLD` (default 0.75) or when there is no suggestion.
+Every result contains these fields:
+- `konto`, `konto_name`;
+- `source`: `input`, `history`, `rule`, `llm` or `none`;
+- `confidence`, `explanation` (in Serbian) and `needs_review`.
 
-`POST /confirm` stores the accountant's decision. The next invoice with the same item or supplier is resolved from history, without an LLM call.
+`needs_review` is true when confidence is below `REVIEW_THRESHOLD` (default 0.75) or when there is no suggestion.
+
+### Analytic (4th-digit) account
+
+After the 3-digit account is known, KontoAI looks only at the client's analytic accounts below it. For example, for 533 it offers 5330 and 5331, and never 5340. Then:
+
+| # | Step | Confidence | Notes |
+|---|---|---|---|
+| 1 | **Client history** | 0.95 same item, 0.80–0.85 same supplier | A confirmed analytic account counts only for the same 3-digit account. |
+| 2 | **Only one option** | 0.90 | The plan has exactly one analytic account below the 3-digit one, so there is nothing to choose and no LLM call is made. |
+| 3 | **LLM** | from the model | Gets the masked item text, the client's activity and *only the offered options*; the JSON schema `enum` contains just those codes. |
+| 4 | **Validation** | — | An answer outside the offered list is rejected. If the model's confidence is below the threshold, nothing is preselected; the model's closest guess appears in the explanation. |
+
+The result is in `suggestion.analytic`: `konto`, `naziv`, `source` (`history` / `only_option` / `llm` / `none`), `confidence`, `explanation`, `needs_review` and `options`, the full list for the dropdown. If the client has no analytic plan, `suggestion.analytic` is `null`.
+
+`POST /confirm` stores the accountant's decision at both levels. The next invoice with the same item or supplier gets the correct 3-digit and analytic accounts straight from history, without an LLM call.
 
 ## Architecture
 
@@ -50,9 +93,10 @@ Every result contains `konto`, `konto_name`, `source` (`history` / `rule` / `llm
 app/
   main.py          FastAPI app and endpoints (create_app factory)
   service.py       wiring: builds the classifier, runs whole invoices
-  classifier.py    the pipeline: history -> rules -> masking -> LLM -> validation
+  classifier.py    the pipeline: synthetic (history -> rules -> LLM) and analytic (history -> only option -> LLM)
+  analytic.py      per-client analytic plan and the CSV/XLSX importer
   sef_parser.py    UBL 2.1 Invoice / CreditNote parser (defusedxml, XXE-safe)
-  history.py       SQLite store of confirmed postings, per client
+  history.py       SQLite store of confirmed postings (3-digit and analytic), per client
   rules.py         keyword rule engine
   masking.py       masking of identifying data before the LLM call
   chart.py         chart of accounts (the allowed list)
@@ -61,17 +105,21 @@ app/
   llm/gemini.py    GeminiProvider (google-genai SDK)
   static/          web page (plain HTML/CSS/JS)
 data/
-  kontni_okvir.json   allowed accounts (UNVERIFIED)
-  rules.json          keyword rules
-  samples/            5 fictional SEF invoices
-  eval/dataset.json   30 labelled fictional items
+  kontni_okvir.json     allowed 3-digit accounts (UNVERIFIED)
+  analiticki_plan.json  per-client analytic plan (TRIAL, to be replaced by the Iris export)
+  rules.json            keyword rules
+  samples/              5 fictional SEF invoices
+  eval/                 dataset.json (50 synthetic items), knjigovodja.json (accountant's items)
+  review/               Excel files for the accountant, her answers, import report, decisions
 scripts/
-  evaluate.py         evaluation report -> eval_results.md
-  make_samples.py     regenerates data/samples
-tests/                pytest suite, Gemini mocked
+  evaluate.py             evaluation report -> eval_results.md
+  review.py               accountant review: generate / import / predictions
+  import_analytic_plan.py import a client's analytic plan from CSV/XLSX
+  make_samples.py         regenerates data/samples
+tests/                  pytest suite, Gemini mocked
 ```
 
-**Swappable model.** The application only uses the `LLMProvider` interface ([`app/llm/base.py`](app/llm/base.py)). Switching to another model or vendor means adding one subclass that implements `suggest()`. The rest of the code stays the same. The Gemini model name and API key come from `.env` (`GEMINI_MODEL`, `GEMINI_API_KEY`). The default is `gemini-3.6-flash`, the current stable Flash model listed in the Gemini API documentation.
+**Swappable model.** The application only uses the `LLMProvider` interface ([`app/llm/base.py`](app/llm/base.py)). Switching to another model or vendor means adding one subclass that implements `suggest()` and, for the analytic step, `choose_analytic()`. The rest of the code stays the same. The Gemini model name and API key come from `.env` (`GEMINI_MODEL`, `GEMINI_API_KEY`). The default is `gemini-3.6-flash`, the current stable Flash model listed in the Gemini API documentation.
 
 ## Data privacy
 
@@ -87,7 +135,36 @@ tests/                pytest suite, Gemini mocked
 
 Masking is pattern-based. It covers the identifiers listed above, but it cannot recognise every possible personal name in free text. This is listed under [limitations](#limitations).
 
+## Analytic chart of accounts
+
+> [!IMPORTANT]
+> **The analytic plan in this repository is a temporary trial version.** [`data/analiticki_plan.json`](data/analiticki_plan.json) contains client `K001` (*proizvodnja dijetetskih proizvoda*) with 17 analytic accounts:
+> - Every account is one that the accountant wrote in the two review files. The account names were derived from her item descriptions and notes.
+> - Every entry is marked `"probni": true`, and the web page shows a notice for this client.
+> - Account 5590 was left out, because that item is waiting for her correction.
+> - The real analytic plan will come as an export from the accounting software (Iris), and the trial version will then be replaced.
+
+Import a plan from CSV or XLSX:
+
+```powershell
+python scripts/import_analytic_plan.py plan.xlsx --client-id K001 --dry-run
+python scripts/import_analytic_plan.py plan.csv --client-id K001 `
+    --konto-column "Šifra" --naziv-column "Naziv" --encoding cp1250 --delimiter ";"
+```
+
+The Iris export format is not known yet, so the importer does **not** assume one.
+
+How the importer reads the file:
+- **Columns:** the account and name columns can be given by header name or by column number (`--konto-column 2`). You can also set the header row, the sheet, the CSV delimiter and the encoding.
+- **Skipped rows:** rows with fewer than four digits (synthetic accounts), rows without a name and duplicates are skipped and listed.
+- **Unknown 3-digit accounts:** if a 3-digit parent account is not in the chart, the importer prints a warning.
+- **Replacing a plan:** the client's plan is replaced, and other clients are kept. Always run `--dry-run` first.
+
+**No accuracy number is published for the analytic step.** The trial plan was built from the same answers of the accountant that an evaluation would compare against, so it would be grading itself. The real evaluation of the analytic step will be done when the Iris plan arrives, on postings that were not used to build the plan.
+
 ## Evaluation
+
+The numbers below are for the **synthetic (3-digit) step**.
 
 > [!WARNING]
 > **The evaluation dataset is synthetic, and its expected accounts are not verified.** I wrote the 50 items, their expected accounts and the keyword rules myself. A high score on this dataset is therefore **not** a measure of real accuracy. In particular, the 100% on the easy history and rule items is true by construction. The expected accounts still need to be verified by an accountant. A real measurement needs invoices and confirmed postings from an accounting office.
@@ -175,6 +252,27 @@ Some details:
 - The system's suggestions come from [`data/eval/system_predictions.json`](data/eval/system_predictions.json). That file was rebuilt from the cached answers of the approved run with `python scripts/review.py predictions`; **none of the review commands call the Gemini API**.
 - Running the evaluation on the accountant's items is a separate step that needs approval: `python scripts/evaluate.py --dataset data/eval/knjigovodja.json --dry-run` first.
 - Expected accounts in the dataset are never changed automatically.
+- Decisions made after the review are stored in [`data/review/odluke.json`](data/review/odluke.json), not in code:
+  - the activity column of `nove_stavke.xlsx` held the **supplier's** activity, so it is kept as `delatnost_dobavljaca`, and the client activity is set to *proizvodnja dijetetskih proizvoda*;
+  - the item *"oglasavnje u casopisu"* (5590) is marked as waiting for correction and is excluded from every evaluation.
+
+**Results of the first review** (full report in [`data/review/izvestaj_provere.md`](data/review/izvestaj_provere.md)):
+
+- **Chart of accounts:** 22 of 25 accounts were confirmed. The accountant was unsure (`?`) about 134, 551 and 559.
+- **Blind check:** 19 of 50 items were filled in. 11 have an account, all written as analytic accounts, and 8 are marked `?`.
+  - On the 3-digit level, the accountant agreed with the dataset and with the system on 7 of the 11 items.
+  - The 4 differences are all cases where the system was confident (not flagged), so by her answers they count as **silent errors**:
+
+    | Item | Accountant | Dataset and system |
+    |---|---|---|
+    | Laptop | 5120 (other material) | 023 (fixed asset) |
+    | Toner | 5112 | 512 |
+    | Yeast at a bakery | 5110 (direct expense) | 101 (inventory) |
+    | Diesel bought by a petrol station | 5133 (expense) | 134 (goods) |
+
+  - The internet item (5315) agrees on the 3-digit level (531). The fourth digit comes from the client's own plan.
+  - Of the 8 items she marked `?`, the system flagged only 1 for review. On those items the system was **more confident than the accountant**.
+- **What this means:** most differences come from accounting policy, for example whether to expense directly or put on stock, or what the fixed-asset threshold is. They do not come from misreading the item. The synthetic dataset's "expected" accounts encode one policy, and this accountant's client uses another. That is one more reason the synthetic 98% is not a real accuracy, and why learning from each client's confirmations matters more than a generic rule.
 
 ## Running locally (Windows / PowerShell)
 
@@ -188,7 +286,11 @@ Copy-Item .env.example .env     # then put your GEMINI_API_KEY into .env
 uvicorn app.main:app --reload
 ```
 
-Open http://localhost:8000 for the web page, or http://localhost:8000/docs for the interactive API docs. Without an API key the app still runs, using history and rules only; unresolved items are flagged for review.
+Open http://localhost:8000 for the web page, or http://localhost:8000/docs for the interactive API docs. Without an API key the app still runs, using history, rules and the analytic plan only; unresolved items are flagged for review.
+
+> **Cost note:** with `GEMINI_API_KEY` set, every uploaded invoice sends real LLM requests. That is up to one request per unresolved item for the 3-digit account, plus one per item whose analytic account needs choosing. On a paid key this costs money. Leave the key empty for demos.
+
+To try the analytic dropdown, upload a sample invoice with client ID `K001` and activity *proizvodnja dijetetskih proizvoda*. That is the client with the trial plan.
 
 Tests and evaluation:
 
@@ -213,9 +315,28 @@ The SQLite history is stored in the `/data` volume.
 | GET | `/health` | Status, configured LLM, number of accounts |
 | GET | `/accounts` | Allowed chart of accounts |
 | POST | `/invoices/xml` | Multipart upload of a SEF XML (`file`, `client_activity`, optional `client_id`; defaults to the buyer's PIB) |
-| POST | `/invoices` | The same, with items as JSON |
-| POST | `/confirm` | Confirm or correct the account for one item; saved to the client's history |
+| POST | `/invoices` | The same, with items as JSON; an item may carry `given_konto` (3-digit account already chosen, e.g. by Iris) |
+| POST | `/confirm` | Confirm or correct the account for one item, optionally with `analytic_konto`; saved to the client's history |
 | GET | `/history/{client_id}` | Confirmed postings for a client, newest first |
+| GET | `/analytic-plan/{client_id}` | The client's analytic accounts (empty if none) |
+
+Only the analytic account, with the 3-digit account coming from Iris:
+
+```bash
+curl -X POST http://localhost:8000/invoices -H "Content-Type: application/json" -d '{
+  "client_id": "K001", "client_activity": "proizvodnja dijetetskih proizvoda",
+  "items": [{"name": "Zakup magacina za gotove proizvode", "given_konto": "533", "supplier_pib": "203000033"}]
+}'
+```
+
+The response has `suggestion.source = "input"`. `suggestion.analytic.options` lists 5330 and 5331, with the suggested one in `suggestion.analytic.konto`. To confirm:
+
+```bash
+curl -X POST http://localhost:8000/confirm -H "Content-Type: application/json" -d '{
+  "client_id": "K001", "item_name": "Zakup magacina za gotove proizvode", "konto": "533",
+  "analytic_konto": "5331", "supplier_pib": "203000033"
+}'
+```
 
 Upload a SEF XML:
 
@@ -270,14 +391,22 @@ The response `status` is `confirmed` if the accountant accepted the suggestion a
 
 ## Tests
 
-`pytest` runs 120 tests covering:
+`pytest` runs 151 tests covering:
 - XML parsing, including XXE rejection;
 - rules, history and masking;
 - rejection of accounts outside the chart;
 - the Gemini provider against a fake SDK client, including retries on rate limits and server errors;
 - all API endpoints, including the confirm-and-learn loop;
 - the evaluation script's `--max-calls` guard, cache and `--dry-run`;
-- generation and import of the accountant review files.
+- generation and import of the accountant review files, including the decisions file;
+- the analytic step:
+  - options only below the 3-digit account;
+  - history by item and by supplier;
+  - the single option;
+  - LLM rejection and low confidence;
+  - masking;
+  - a migration for older databases;
+- the analytic plan importer: CSV with `;` and cp1250, XLSX by column number, a dry run.
 
 Gemini is mocked everywhere. The tests need neither internet access nor an API key, and a fixture fails any test that tries to create a real client.
 
@@ -285,7 +414,9 @@ GitHub Actions runs two jobs on every push. The first runs the test suite. The s
 
 ## Limitations
 
-- **The chart of accounts must be verified.** It is a partial list of 3-digit accounts relevant to incoming invoices (classes 0, 1 and 5), taken from Sl. glasnik RS 89/2020. Intangible assets (e.g. software licences), 4+ digit analytic accounts and client-specific account plans are not included.
+- **The chart of accounts must be verified.** It is a partial list of 3-digit accounts relevant to incoming invoices (classes 0, 1 and 5), taken from Sl. glasnik RS 89/2020. Intangible assets (e.g. software licences) are not included.
+- **The analytic plan is a trial version.** It has one client, and it was built from the accountant's answers in the review files. It will be replaced by the Iris export. There is no accuracy measurement for the analytic step yet, and there cannot be a fair one until a plan and postings that were not used to build it are available.
+- **Single option = no question asked.** If the plan has only one analytic account below a 3-digit account, it is preselected without an LLM call. With an incomplete plan, that may hide the fact that a better analytic account is missing.
 - **VAT is not handled.** The system suggests the cost/asset account for the net amount. Input VAT (*prethodni porez*, group 27), the supplier account (435) and the full posting entry are out of scope.
 - **Accounting policy matters.** Whether a laptop is a fixed asset (023) or small inventory, and whether goods are booked at wholesale or retail, depends on the client's policy. The system cannot know this until the accountant confirms a few decisions.
 - **Masking is pattern-based.** Names that appear without a marker word in free text may not be detected. In production this should be combined with an NER model and a review of what is sent.
@@ -298,5 +429,6 @@ GitHub Actions runs two jobs on every push. The first runs the test suite. The s
 - Fuzzy and embedding-based history matching (e.g. "Brašno T-500" ↔ "Brašno T-400").
 - Batch LLM calls per invoice; caching of identical masked items.
 - Full posting proposal including VAT and the supplier account.
-- Import of a client's own account plan and accounting policy (fixed-asset threshold).
+- Replace the trial analytic plan with the Iris export, then evaluate the analytic step on postings that were not used to build the plan.
+- Client accounting policy (fixed-asset threshold, direct expensing vs. stock). The first review showed that these choices cause most of the differences.
 - Authentication, audit log and an export for accounting software.
