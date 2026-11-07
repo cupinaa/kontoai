@@ -253,6 +253,7 @@ select.analytic:disabled { cursor: default; color: var(--text-2); }
 .compare-konto { font-weight: 600; font-variant-numeric: tabular-nums; }
 .compare-name { color: var(--text-2); font-size: 13px; }
 .verdict { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; }
+.previous { margin-top: 10px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-ink); font-size: 14px; font-weight: 500; }
 
 .meter { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
 .meter i { display: block; height: 100%; background: var(--ok); border-radius: 3px; transition: width var(--base) var(--ease); }

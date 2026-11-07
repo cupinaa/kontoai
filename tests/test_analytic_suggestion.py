@@ -247,6 +247,89 @@ def test_manual_test_invoice_07(settings, sample_bytes):
     assert again[1]["suggestion"]["analytic"]["source"] == "history"
 
 
+def _invoice07_client(settings):
+    from dataclasses import replace
+
+    from app.config import DATA_DIR
+
+    return TestClient(create_app(replace(settings, analytic_plan_path=DATA_DIR / "analiticki_plan.json"),
+                                 llm=FakeLLM(konto="539")))
+
+
+def _upload07(client, sample_bytes):
+    return client.post(
+        "/invoices/xml",
+        files={"file": ("07.xml", sample_bytes("07_test_dijetetika.xml"), "application/xml")},
+        data={"client_activity": "proizvodnja dijetetskih proizvoda", "client_id": CLIENT},
+    ).json()["items"]
+
+
+def test_previous_decision_against_the_same_iris_account_is_offered(settings, sample_bytes):
+    """Bank fee in invoice 07: Iris says 559, the accountant books 553 · 5530. Next time her decision is
+    preselected, the line still does not match Iris, and the panel says 'Prošli put ste izabrali 553 · 5530'."""
+    client = _invoice07_client(settings)
+    bank = _upload07(client, sample_bytes)[5]
+    assert bank["suggestion"]["previous_choice"] is None
+    response = client.post("/confirm", json={
+        "client_id": CLIENT, "item_name": bank["item"]["name"], "konto": "553", "analytic_konto": "5530",
+        "supplier_name": bank["item"]["supplier_name"], "supplier_pib": bank["item"]["supplier_pib"],
+        "given_konto": "559", "suggested_konto": "559", "suggested_source": "input",
+    })
+    assert response.status_code == 200 and response.json()["record"]["given_konto"] == "559"
+
+    s = _upload07(client, sample_bytes)[5]["suggestion"]
+    assert s["given_konto"] == "559" and s["given_check"] == "mismatch" and s["needs_review"] is True
+    assert s["previous_choice"] == {"konto": "553", "konto_name": "Troškovi platnog prometa",
+                                    "analytic_konto": "5530", "analytic_naziv": "Troškovi bankarskih provizija"}
+    a = s["analytic"]
+    assert a["konto"] == "5530" and a["source"] == "history"
+    assert [o["konto"] for o in a["options"]] == ["5530"]  # options below HER account, not below 559
+    assert a["explanation"] == "Prošli put ste izabrali 553 · 5530."
+
+
+def test_previous_decision_is_not_used_when_iris_changed(settings, sample_bytes):
+    client = _invoice07_client(settings)
+    bank = _upload07(client, sample_bytes)[5]
+    client.post("/confirm", json={
+        "client_id": CLIENT, "item_name": bank["item"]["name"], "konto": "553", "analytic_konto": "5530",
+        "supplier_pib": bank["item"]["supplier_pib"], "given_konto": "559",
+    })
+    body = client.post("/invoices", json={"client_id": CLIENT, "client_activity": "proizvodnja",
+                                          "items": [{"name": bank["item"]["name"], "given_konto": "539",
+                                                     "supplier_pib": bank["item"]["supplier_pib"]}]}).json()
+    s = body["items"][0]["suggestion"]
+    assert s["previous_choice"] is None  # Iris now says 539, not 559
+    assert all(o["konto"].startswith("539") for o in s["analytic"]["options"])
+
+
+def test_previous_decision_needs_the_same_item_not_just_the_same_supplier(settings, sample_bytes):
+    client = _invoice07_client(settings)
+    bank = _upload07(client, sample_bytes)[5]
+    for name in (bank["item"]["name"], "Naknada za vođenje računa"):
+        client.post("/confirm", json={"client_id": CLIENT, "item_name": name, "konto": "553",
+                                      "analytic_konto": "5530", "supplier_pib": bank["item"]["supplier_pib"],
+                                      "given_konto": "559"})
+    body = client.post("/invoices", json={"client_id": CLIENT, "client_activity": "proizvodnja",
+                                          "items": [{"name": "Naknada za SMS obaveštenja", "given_konto": "559",
+                                                     "supplier_pib": bank["item"]["supplier_pib"]}]}).json()
+    s = body["items"][0]["suggestion"]
+    assert s["previous_choice"] is None
+    assert s["analytic"]["options"] == []  # supplier history stays below Iris' 559, where the plan has nothing
+
+
+def test_previous_decision_from_an_older_record_without_stored_iris(history, chart, rules):
+    from app.classifier import ItemContext
+
+    history.add(client_id=CLIENT, item_name="Provizija banke", konto="553", analytic_konto="5530",
+                supplier_pib="400000001", suggested_konto="559", suggested_source=Source.INPUT)
+    plan = AnalyticPlan({CLIENT: [AnalyticAccount(konto="5530", naziv="Bankarske provizije")]})
+    s = make(chart, history, rules, FakeLLM(), plan=plan).classify(
+        ItemContext(client_id=CLIENT, client_activity="x",
+                    item=InvoiceItem(name="Provizija banke", supplier_pib="400000001", given_konto="559")))
+    assert s.previous_choice is not None and s.previous_choice.konto == "553"
+    assert s.analytic.konto == "5530"
+
+
 def test_demo_replay_sample_06_learning_without_spreading(settings, sample_bytes):
     """Exactly the demo of 2026-11-07: upload 06 for K001, confirm 5331 on row 2, upload again.
 

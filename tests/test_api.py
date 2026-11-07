@@ -79,7 +79,7 @@ def test_invoice_xml_upload(client, sample_bytes):
     assert by_name["Troškovi održavanja zajedničkih prostorija"]["source"] == "llm"
     for suggestion in by_name.values():
         assert set(suggestion) == {"konto", "konto_name", "source", "confidence", "explanation", "needs_review",
-                                   "analytic", "given_konto", "given_konto_name", "given_check"}
+                                   "analytic", "given_konto", "given_konto_name", "given_check", "previous_choice"}
         assert suggestion["analytic"] is None  # this sample client has no analytic plan
         assert suggestion["given_check"] is None  # no Iris account in this sample
 

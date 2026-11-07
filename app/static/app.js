@@ -137,7 +137,8 @@ function renderInvoice(data) {
   $("inv-total").textContent = `${money(total)} ${inv.currency || "RSD"}`;
 
   state.rows = data.items.map(({ item, suggestion: s }) => {
-    const base = s.given_konto || s.konto;
+    // Preselected account: the accountant's earlier decision for this item, else Iris, else the system.
+    const base = (s.previous_choice && s.previous_choice.konto) || s.given_konto || s.konto;
     return { item, s, base, choice: { konto: base, analytic: (s.analytic && s.analytic.konto) || "" }, confirmed: false };
   });
 
@@ -236,9 +237,10 @@ async function confirmRow(index, { quiet = false } = {}) {
         konto: row.choice.konto,
         supplier_name: row.item.supplier_name,
         supplier_pib: row.item.supplier_pib,
-        // What was preselected: Iris' account when given, otherwise the system's suggestion.
+        // What was preselected (her earlier decision, Iris' account or the system's suggestion).
         suggested_konto: row.base,
-        suggested_source: s.given_konto ? "input" : s.source,
+        suggested_source: s.previous_choice ? "history" : (s.given_konto ? "input" : s.source),
+        given_konto: s.given_konto || null,
         analytic_konto: row.choice.analytic || null,
         suggested_analytic: a ? a.konto : null,
         suggested_analytic_source: a ? a.source : null,
@@ -317,7 +319,8 @@ function renderPanel() {
         <div class="compare-row"><span class="compare-who">Iris</span><span class="compare-konto">${esc(s.given_konto)}</span><span class="compare-name">${esc(kontoName(s.given_konto))}</span></div>
         <div class="compare-row"><span class="compare-who">Sistem</span><span class="compare-konto">${esc(s.konto || "—")}</span><span class="compare-name">${esc(s.konto ? kontoName(s.konto) : "")}</span></div>
       </div>
-      <div class="verdict">${verdict[0]}<span>${esc(verdict[1])}</span></div>`;
+      <div class="verdict">${verdict[0]}<span>${esc(verdict[1])}</span></div>
+      ${s.previous_choice ? `<div class="previous">Prošli put ste izabrali ${esc(s.previous_choice.konto)}${s.previous_choice.analytic_konto ? " · " + esc(s.previous_choice.analytic_konto) : ""}</div>` : ""}`;
   } else {
     compare = `
       <div class="compare">

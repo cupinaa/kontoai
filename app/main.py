@@ -153,6 +153,7 @@ def create_app(settings: Settings | None = None, llm: LLMProvider | None = None,
             analytic_name=analytic.naziv if analytic else None,
             suggested_analytic=request.suggested_analytic,
             suggested_analytic_source=request.suggested_analytic_source,
+            given_konto=request.given_konto,
         )
         corrected = record.corrected or record.analytic_corrected
         return ConfirmResponse(status="corrected" if corrected else "confirmed", record=record)

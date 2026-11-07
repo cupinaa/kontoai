@@ -22,6 +22,7 @@ from app.models import (
     AnalyticSuggestion,
     GivenCheck,
     InvoiceItem,
+    PreviousChoice,
     Source,
     Suggestion,
 )
@@ -90,9 +91,34 @@ class Classifier:
         given = ctx.item.given_konto
         if given:
             self._check_given(suggestion, given)
+            previous = self._previous_decision(ctx, given)
+            if previous is not None:
+                # The accountant already overrode this same Iris account for this same item:
+                # offer her decision (account + analytic). The item still does not match Iris.
+                suggestion.previous_choice, suggestion.analytic = previous
+                return suggestion
         # The analytic account is chosen below the given (Iris) account when there is one: it is authoritative.
         suggestion.analytic = self.suggest_analytic(ctx, given or suggestion.konto)
         return suggestion
+
+    def _previous_decision(self, ctx: ItemContext, given: str):
+        item = ctx.item
+        row = self.history.lookup_item_decision(ctx.client_id, item.name, item.supplier_pib, item.supplier_name, given)
+        if row is None or row["konto"] not in self.chart:
+            return None
+        konto, analytic = row["konto"], row["analytic_konto"]
+        choice = PreviousChoice(konto=konto, konto_name=self.chart.name(konto), analytic_konto=analytic,
+                                analytic_naziv=row["analytic_name"])
+        if not self.analytic_plan.has_client(ctx.client_id):
+            return choice, None
+        options = self.analytic_plan.options(ctx.client_id, konto)
+        label = f"Prošli put ste izabrali {konto}" + (f" · {analytic}" if analytic else "")
+        if analytic and any(o.konto == analytic for o in options):
+            suggestion = self._analytic(options, analytic, AnalyticSource.HISTORY, 0.95, label + ".")
+        else:
+            # Her analytic is not in the plan (any more): offer the list, preselect nothing.
+            suggestion = self._analytic(options, None, AnalyticSource.NONE, 0.0, label + ".")
+        return choice, suggestion
 
     def _check_given(self, s: Suggestion, given: str) -> None:
         s.given_konto = given

@@ -12,9 +12,10 @@ Server radi na http://127.0.0.1:8000 sa Gemini ključem i tvrdim limitom poziva.
 | 4 | Klikni **Potvrdi** u panelu. | Dugme u redu postaje zelena kvačica, a red blago izbledi. |
 | 5 | Zatvori panel (×). Kod reda **Zakup poslovnog prostora** proveri padajući spisak **Analitika**. | Unapred je izabran **5330 Troškovi zakupa poslovnog prostora**; može se izabrati i 5331. Ako je neka zelena stavka bez izabrane analitike, izaberi je u spisku. |
 | 6 | Klikni **Potvrdi sve usklađene (N)** gore desno. | Svi redovi sa zelenom kvačicom (koji imaju analitiku) postaju potvrđeni, a dole se nakratko pojavi poruka „Potvrđeno stavki: N“. |
-| 7 | Klikni **Nova faktura** i ponovo ubaci isti fajl. | Svi redovi se pojavljuju odmah. Klikni na **Zakup poslovnog prostora**: u panelu je obrazloženje „Ista stavka istog dobavljača je kod ovog klijenta ranije potvrđena…“ (sigurnost 95%), a analitika je ona koju si potvrdio. Provizija banke i dalje ima žutu tačku, jer Iris i dalje kaže 559. U panelu sada piše **Sistem 553** sa obrazloženjem iz istorije. Analitika se traži ispod Iris konta (559), pa je za 5530 potrebno ponovo izabrati 553 u polju Konto. Iris konto je merodavan sve dok ga ne ispraviš u Iris-u. |
+| 7 | Klikni **Nova faktura** i ponovo ubaci isti fajl. | Svi redovi se pojavljuju odmah. Klikni na **Zakup poslovnog prostora**: u panelu je obrazloženje „Ista stavka istog dobavljača je kod ovog klijenta ranije potvrđena…“ (sigurnost 95%), a analitika je ona koju si potvrdio. Provizija banke i dalje ima žutu tačku, jer Iris i dalje kaže 559, ali je tvoja prošla odluka već izabrana: konto **553** i analitika **5530**. Klikni na red: u panelu stoji **„Prošli put ste izabrali 553 · 5530“**. Potvrdi je jednim klikom. Bez ove potvrde stavka ne ulazi u „Potvrdi sve usklađene“, jer se ne poklapa sa Iris-om. |
 
 Napomene:
+- Prošla odluka se nudi samo za **istu stavku istog dobavljača** i samo dok Iris daje isti konto kao tada. Ako se Iris konto promeni, ili ako je u pitanju druga stavka istog dobavljača, analitika se ponovo traži ispod Iris konta.
 - Ponovno ubacivanje ne troši Gemini pozive. Potvrđene stavke dolaze iz istorije, a ostale iz keša servera.
 - Ako se limit poziva potroši, stavke bez odgovora se jednostavno označe za proveru (žuta tačka) i ništa se ne šalje.
 - Istorija potvrda se čuva u `kontoai.db` u folderu projekta.

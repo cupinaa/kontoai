@@ -91,6 +91,13 @@ class AnalyticSuggestion(BaseModel):
     options: list[AnalyticOption] = Field(description="All analytic accounts of the client below the 3-digit account")
 
 
+class PreviousChoice(BaseModel):
+    konto: str
+    konto_name: str | None = None
+    analytic_konto: str | None = None
+    analytic_naziv: str | None = None
+
+
 class Suggestion(BaseModel):
     konto: str | None = Field(description="Suggested 3-digit account, or null when undecided")
     konto_name: str | None = None
@@ -100,6 +107,11 @@ class Suggestion(BaseModel):
     needs_review: bool
     analytic: AnalyticSuggestion | None = Field(
         default=None, description="Analytic (4th-digit) suggestion; null when the client has no analytic plan"
+    )
+    previous_choice: PreviousChoice | None = Field(
+        default=None,
+        description="The accountant's earlier decision for the same item when it differed from the same Iris "
+                    "account; the UI preselects it (the item still does not match Iris)",
     )
     given_konto: str | None = Field(default=None, description="3-digit account given on input (Iris), if any")
     given_konto_name: str | None = None
@@ -140,6 +152,8 @@ class ConfirmRequest(BaseModel):
     analytic_konto: str | None = Field(default=None, pattern=r"^\d{4,}$", examples=["5133"])
     suggested_analytic: str | None = None
     suggested_analytic_source: AnalyticSource | None = None
+    given_konto: str | None = Field(default=None, pattern=r"^\d{3}$",
+                                    description="Iris account of the item at confirmation time, if any")
 
 
 class HistoryRecord(BaseModel):
@@ -158,6 +172,7 @@ class HistoryRecord(BaseModel):
     suggested_analytic: str | None = None
     suggested_analytic_source: AnalyticSource | None = None
     analytic_corrected: bool = False
+    given_konto: str | None = None
     confirmed_at: datetime
 
 

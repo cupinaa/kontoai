@@ -51,6 +51,7 @@ _ANALYTIC_COLUMNS = {
     "suggested_analytic": "TEXT",
     "suggested_analytic_source": "TEXT",
     "analytic_corrected": "INTEGER NOT NULL DEFAULT 0",
+    "given_konto": "TEXT",  # Iris account of the item when it was confirmed
 }
 
 ITEM_MATCH_CONFIDENCE = 0.95
@@ -135,6 +136,7 @@ class HistoryStore:
         analytic_name: str | None = None,
         suggested_analytic: str | None = None,
         suggested_analytic_source: AnalyticSource | None = None,
+        given_konto: str | None = None,
     ) -> HistoryRecord:
         corrected = suggested_konto is not None and suggested_konto != konto
         analytic_corrected = analytic_konto is not None and suggested_analytic not in (None, analytic_konto)
@@ -144,8 +146,8 @@ class HistoryStore:
                 """INSERT INTO confirmations (client_id, item_key, item_name, supplier_key, supplier_name,
                        supplier_pib, konto, konto_name, suggested_konto, suggested_source, corrected, confirmed_at,
                        analytic_konto, analytic_name, suggested_analytic, suggested_analytic_source,
-                       analytic_corrected)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       analytic_corrected, given_konto)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     client_id,
                     normalize(item_name),
@@ -164,6 +166,7 @@ class HistoryStore:
                     suggested_analytic,
                     suggested_analytic_source.value if suggested_analytic_source else None,
                     int(analytic_corrected),
+                    given_konto,
                 ),
             )
             row = conn.execute("SELECT * FROM confirmations WHERE id = ?", (cursor.lastrowid,)).fetchone()
@@ -241,6 +244,23 @@ class HistoryStore:
         return (self.lookup_item(client_id, item_name, supplier_pib, supplier_name)
                 or self.lookup_supplier(client_id, supplier_pib, supplier_name))
 
+    def lookup_item_decision(
+        self, client_id: str, item_name: str, supplier_pib: str | None, supplier_name: str | None, given: str
+    ) -> sqlite3.Row | None:
+        """The accountant's LATEST decision for this item (same supplier, same/similar text), if it
+        overrode the very same Iris account that the item carries now. Supplier-level history never counts."""
+        rows, _ = self._item_rows(self._supplier_rows(client_id, supplier_key(supplier_pib, supplier_name)), item_name)
+        if not rows:
+            return None
+        latest = rows[0]
+        # Older confirmations did not store the Iris account; then the preselected Iris account counts.
+        iris_then = latest["given_konto"] or (
+            latest["suggested_konto"] if latest["suggested_source"] == Source.INPUT.value else None
+        )
+        if iris_then == given and latest["konto"] != given:
+            return latest
+        return None
+
     def lookup_analytic_item(
         self, client_id: str, item_name: str, supplier_pib: str | None, supplier_name: str | None, konto: str
     ) -> HistoryMatch | None:
@@ -308,5 +328,6 @@ def _to_record(row: sqlite3.Row) -> HistoryRecord:
             AnalyticSource(row["suggested_analytic_source"]) if row["suggested_analytic_source"] else None
         ),
         analytic_corrected=bool(row["analytic_corrected"]),
+        given_konto=row["given_konto"],
         confirmed_at=datetime.fromisoformat(row["confirmed_at"]),
     )
