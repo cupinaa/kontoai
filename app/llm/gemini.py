@@ -10,7 +10,15 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from app.llm.base import SYSTEM_PROMPT, LLMError, LLMProvider, LLMRequest, LLMSuggestion, build_user_prompt
+from app.llm.base import (
+    SYSTEM_PROMPT,
+    CallBudget,
+    LLMError,
+    LLMProvider,
+    LLMRequest,
+    LLMSuggestion,
+    build_user_prompt,
+)
 
 
 def response_schema(allowed_codes: list[str]) -> dict[str, Any]:
@@ -68,16 +76,25 @@ class GeminiProvider(LLMProvider):
         max_retries: int = 3,
         max_retry_wait: float = 65.0,
         sleep: Callable[[float], None] = time.sleep,
+        budget: CallBudget | None = None,
     ):
         self.model = model
         self.max_retries = max_retries
         self.max_retry_wait = max_retry_wait
+        self.budget = budget
         self._sleep = sleep
+        # Token usage summed over all successful responses (for cost reporting).
+        self.usage = {"calls": 0, "prompt_tokens": 0, "output_tokens": 0, "thinking_tokens": 0}
         if client is None:
             from google import genai
             from google.genai import types
 
-            client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=timeout_ms))
+            # SDK-level retries are disabled explicitly: the only retries are the ones below,
+            # so every real HTTP request is counted against `budget`.
+            client = genai.Client(
+                api_key=api_key,
+                http_options=types.HttpOptions(timeout=timeout_ms, retry_options=types.HttpRetryOptions(attempts=1)),
+            )
         self._client = client
 
     def suggest(self, request: LLMRequest) -> LLMSuggestion:
@@ -92,6 +109,8 @@ class GeminiProvider(LLMProvider):
         prompt = build_user_prompt(request)
         attempt = 0
         while True:
+            if self.budget is not None:
+                self.budget.consume()  # raises CallBudgetExceeded before anything is sent
             try:
                 response = self._client.models.generate_content(model=self.model, contents=prompt, config=config)
                 break
@@ -106,6 +125,7 @@ class GeminiProvider(LLMProvider):
                 summary = str(exc).splitlines()[0][:200]
                 raise LLMError(f"Gemini poziv nije uspeo: {type(exc).__name__}: {summary}") from exc
 
+        self._record_usage(response)
         text = getattr(response, "text", None)
         if not text:
             raise LLMError("Gemini je vratio prazan odgovor.")
@@ -113,3 +133,12 @@ class GeminiProvider(LLMProvider):
             return LLMSuggestion.model_validate_json(text)
         except ValidationError as exc:
             raise LLMError(f"Gemini odgovor ne odgovara šemi: {exc.error_count()} grešaka") from exc
+
+    def _record_usage(self, response: Any) -> None:
+        meta = getattr(response, "usage_metadata", None)
+        self.usage["calls"] += 1
+        if meta is None:
+            return
+        self.usage["prompt_tokens"] += getattr(meta, "prompt_token_count", None) or 0
+        self.usage["output_tokens"] += getattr(meta, "candidates_token_count", None) or 0
+        self.usage["thinking_tokens"] += getattr(meta, "thoughts_token_count", None) or 0

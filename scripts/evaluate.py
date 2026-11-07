@@ -1,8 +1,10 @@
 """Run the evaluation dataset through the full pipeline and report accuracy.
 
 Usage:
+    python scripts/evaluate.py --dry-run       # plan only: counts calls and tokens, sends NOTHING to the API
     python scripts/evaluate.py                 # uses Gemini if GEMINI_API_KEY is set
     python scripts/evaluate.py --no-llm        # history + rules only
+    python scripts/evaluate.py --max-calls 40  # hard cap on real API requests (default 40, retries count)
     python scripts/evaluate.py --rpm 4         # stay under a free-tier quota of 5 requests/minute
     python scripts/evaluate.py --output eval_results.md
 
@@ -29,11 +31,23 @@ sys.path.insert(0, str(ROOT))
 
 from app.classifier import ItemContext  # noqa: E402
 from app.config import get_settings  # noqa: E402
-from app.llm.base import LLMProvider, LLMRequest, LLMSuggestion  # noqa: E402
+from app.llm.base import (  # noqa: E402
+    SYSTEM_PROMPT,
+    CallBudget,
+    LLMError,
+    LLMProvider,
+    LLMRequest,
+    LLMSuggestion,
+    build_user_prompt,
+)
+from app.llm.gemini import GeminiProvider  # noqa: E402
 from app.models import InvoiceItem, Source  # noqa: E402
 from app.service import build_classifier  # noqa: E402
 
+DEFAULT_MAX_CALLS = 40
+
 SOURCE_LABELS = {Source.HISTORY: "history", Source.RULE: "rules", Source.LLM: "LLM", Source.NONE: "undecided"}
+BUDGET_MARKER = "dostignut limit"  # text of CallBudgetExceeded, surfaced in the item explanation
 CATEGORY_LABELS = {
     "ambiguous": "ambiguous description",
     "abbreviation": "invoice abbreviation",
@@ -115,14 +129,57 @@ class CachedProvider(LLMProvider):
         return answer
 
 
-def run(dataset_path: Path, use_llm: bool, rpm: float | None, use_cache: bool) -> tuple[list[Row], str | None]:
+class DryRunProvider(LLMProvider):
+    """Stands in for the real model: records what would be sent and never touches the network."""
+
+    name = "dry-run"
+
+    def __init__(self, model: str):
+        self.model = model
+        self.requests: list[LLMRequest] = []
+
+    def suggest(self, request: LLMRequest) -> LLMSuggestion:
+        self.requests.append(request)
+        raise LLMError("dry run — no API call sent")
+
+    def estimated_prompt_tokens(self) -> int:
+        # ~4 characters per token is a conservative rule of thumb for Latin-script text.
+        return sum((len(SYSTEM_PROMPT) + len(build_user_prompt(r))) // 4 for r in self.requests)
+
+
+@dataclass
+class RunInfo:
+    model: str | None
+    budget: CallBudget | None = None
+    gemini: GeminiProvider | None = None
+    dry_run: DryRunProvider | None = None
+    cache_hits: int = 0
+
+
+def run(
+    dataset_path: Path,
+    use_llm: bool,
+    rpm: float | None,
+    use_cache: bool,
+    max_calls: int = DEFAULT_MAX_CALLS,
+    dry_run: bool = False,
+) -> tuple[list[Row], RunInfo]:
     data = json.loads(dataset_path.read_text(encoding="utf-8"))
     with tempfile.TemporaryDirectory() as tmp:
         settings = replace(get_settings(), db_path=Path(tmp) / "eval.db")
-        classifier = build_classifier(settings, use_llm=use_llm)
+        info = RunInfo(model=settings.gemini_model if use_llm else None)
+        llm: LLMProvider | None = None
+        if use_llm and dry_run:
+            llm = info.dry_run = DryRunProvider(settings.gemini_model)
+        elif use_llm:
+            info.budget = CallBudget(max_calls)
+            llm = info.gemini = GeminiProvider(
+                api_key=settings.gemini_api_key or "", model=settings.gemini_model, budget=info.budget
+            )
+        classifier = build_classifier(settings, llm=llm, use_llm=False)
         throttle = cache = None
         if classifier.llm is not None:
-            if rpm:
+            if rpm and not dry_run:
                 throttle = classifier.llm = ThrottledProvider(classifier.llm, rpm)
             if use_cache:
                 cache = classifier.llm = CachedProvider(classifier.llm, CACHE_DIR)
@@ -130,6 +187,7 @@ def run(dataset_path: Path, use_llm: bool, rpm: float | None, use_cache: bool) -
             classifier.history.add(**seed, konto_name=classifier.chart.name(seed["konto"]))
 
         rows: list[Row] = []
+        announced = False
         for entry in data["items"]:
             item = InvoiceItem(
                 name=entry["name"],
@@ -164,8 +222,12 @@ def run(dataset_path: Path, use_llm: bool, rpm: float | None, use_cache: bool) -
                     cached=bool(cache and cache.last_hit and suggestion.source is Source.LLM),
                 )
             )
-        model = classifier.llm.model if classifier.llm else None
-    return rows, model
+            info.cache_hits += rows[-1].cached
+            if BUDGET_MARKER in suggestion.explanation and not announced:
+                announced = True
+                print(f"!!! Reached --max-calls {max_calls}: no further API calls will be sent. "
+                      f"Remaining LLM items are flagged for review.", file=sys.stderr)
+    return rows, info
 
 
 def pct(numerator: int, denominator: int) -> str:
@@ -190,7 +252,12 @@ TABLE_HEAD = [
 ]
 
 
-def render(rows: list[Row], model: str | None, threshold: float) -> str:
+def budget_skipped(rows: list[Row]) -> list[Row]:
+    return [r for r in rows if BUDGET_MARKER in r.explanation]
+
+
+def render(rows: list[Row], info: RunInfo, threshold: float) -> str:
+    model = info.model
     easy = [r for r in rows if r.difficulty == "easy"]
     hard = [r for r in rows if r.difficulty == "hard"]
     llm_errors = [r for r in rows if r.source is Source.LLM and r.predicted is None]
@@ -242,6 +309,25 @@ def render(rows: list[Row], model: str | None, threshold: float) -> str:
                     "These items are counted as wrong but are flagged for review."]
     if any(r.cached for r in rows):
         out += ["", "Some LLM answers were served from the local cache; their time is excluded from the averages."]
+    if info.gemini is not None and info.budget is not None:
+        u = info.gemini.usage
+        out += [
+            "",
+            "## API usage",
+            "",
+            "| Metric | Value |",
+            "|---|---|",
+            f"| API requests sent (incl. retries) | {info.budget.used} of max {info.budget.max_calls} |",
+            f"| Successful responses | {u['calls']} |",
+            f"| Answers served from cache | {info.cache_hits} |",
+            f"| Prompt tokens | {u['prompt_tokens']:,} |",
+            f"| Output tokens | {u['output_tokens']:,} |",
+            f"| Thinking tokens | {u['thinking_tokens']:,} |",
+        ]
+        skipped = budget_skipped(rows)
+        if skipped:
+            out += ["", f"**Stopped at the call limit:** {len(skipped)} items were not sent to the API because "
+                        f"`--max-calls {info.budget.max_calls}` was reached."]
 
     out += [
         "",
@@ -277,16 +363,35 @@ def main() -> None:
     parser.add_argument("--rpm", type=float, default=None,
                         help="max LLM requests per minute (e.g. 4 for the Gemini free tier); waits are not timed")
     parser.add_argument("--no-cache", action="store_true", help="do not read or write .eval_cache/")
+    parser.add_argument("--max-calls", type=int, default=DEFAULT_MAX_CALLS,
+                        help=f"hard cap on real API requests incl. retries (default {DEFAULT_MAX_CALLS})")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="plan only: report how many API calls would be needed; sends nothing")
     args = parser.parse_args()
 
     settings = get_settings()
     use_llm = not args.no_llm
-    if use_llm and not settings.gemini_api_key:
+    if use_llm and not settings.gemini_api_key and not args.dry_run:
         print("GEMINI_API_KEY is not set; running without the LLM step.", file=sys.stderr)
         use_llm = False
 
-    rows, model = run(args.dataset, use_llm, args.rpm, use_cache=not args.no_cache)
-    args.output.write_text(render(rows, model, settings.review_threshold), encoding="utf-8")
+    rows, info = run(args.dataset, use_llm, args.rpm, use_cache=not args.no_cache,
+                     max_calls=args.max_calls, dry_run=args.dry_run)
+
+    if args.dry_run:
+        planner = info.dry_run
+        needed = len(planner.requests) if planner else 0
+        print("DRY RUN — no API calls were sent.")
+        print(f"Model: {settings.gemini_model}")
+        print(f"Items: {len(rows)}; resolved by history/rules: {sum(r.source is not Source.LLM for r in rows)}")
+        print(f"LLM answers already in cache: {info.cache_hits}")
+        print(f"API calls needed (without retries): {needed}  (limit --max-calls {args.max_calls})")
+        if planner:
+            print(f"Estimated prompt tokens in total: ~{planner.estimated_prompt_tokens():,}")
+        return
+
+    args.output.write_text(render(rows, info, settings.review_threshold), encoding="utf-8")
+    model = info.model
 
     def line(label: str, group: list[Row]) -> str:
         ok = sum(r.correct for r in group)
@@ -302,6 +407,15 @@ def main() -> None:
         if group:
             print(line(SOURCE_LABELS[source], group))
     print(f"LLM errors: {sum(r.source is Source.LLM and r.predicted is None for r in rows)}")
+    if info.budget is not None and info.gemini is not None:
+        u = info.gemini.usage
+        print(f"API requests sent: {info.budget.used} of max {info.budget.max_calls}; cache hits: {info.cache_hits}")
+        print(f"Tokens: prompt {u['prompt_tokens']:,}, output {u['output_tokens']:,}, "
+              f"thinking {u['thinking_tokens']:,}")
+        skipped = budget_skipped(rows)
+        if skipped:
+            print(f"!!! STOPPED: reached --max-calls {info.budget.max_calls}. "
+                  f"{len(skipped)} items were NOT sent to the API and are flagged for review.")
     print(f"Report written to {args.output}")
 
 

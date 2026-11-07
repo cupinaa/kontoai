@@ -17,6 +17,29 @@ class LLMError(RuntimeError):
     """The provider failed (network, quota, invalid response...)."""
 
 
+class CallBudgetExceeded(LLMError):
+    """The configured maximum number of API calls was reached; no request was sent."""
+
+
+class CallBudget:
+    """Hard cap on the number of real API requests (every attempt, including retries, counts)."""
+
+    def __init__(self, max_calls: int):
+        if max_calls < 0:
+            raise ValueError("max_calls must be >= 0")
+        self.max_calls = max_calls
+        self.used = 0
+
+    @property
+    def exhausted(self) -> bool:
+        return self.used >= self.max_calls
+
+    def consume(self) -> None:
+        if self.exhausted:
+            raise CallBudgetExceeded(f"dostignut limit od {self.max_calls} API poziva, zahtev nije poslat")
+        self.used += 1
+
+
 class LLMRequest(BaseModel):
     """Everything the model is allowed to see. Text fields are already masked."""
 

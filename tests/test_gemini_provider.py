@@ -101,6 +101,42 @@ def test_transient_server_errors_use_exponential_backoff(request_):
     assert sleeps == [3.0, 5.0]  # 2 s, 4 s backoff + 1 s margin
 
 
+def test_call_budget_counts_every_attempt_including_retries(request_):
+    from app.llm.base import CallBudget, CallBudgetExceeded
+
+    budget = CallBudget(2)
+    models = FlakyModels(failures=5, text=ANSWER)
+    p = GeminiProvider(api_key="unused", model="m", client=SimpleNamespace(models=models),
+                       sleep=lambda s: None, budget=budget)
+    with pytest.raises(CallBudgetExceeded):
+        p.suggest(request_)
+    assert len(models.calls) == 2  # third attempt was blocked before sending
+    assert budget.used == 2 and budget.exhausted
+
+
+def test_call_budget_blocks_before_sending(request_):
+    from app.llm.base import CallBudget, CallBudgetExceeded
+
+    models = FakeModels(text=ANSWER)
+    p = GeminiProvider(api_key="unused", model="m", client=SimpleNamespace(models=models), budget=CallBudget(0))
+    with pytest.raises(CallBudgetExceeded):
+        p.suggest(request_)
+    assert models.calls == []
+
+
+def test_usage_is_recorded(request_):
+    class WithUsage(FakeModels):
+        def generate_content(self, **kwargs):
+            self.calls.append(kwargs)
+            meta = SimpleNamespace(prompt_token_count=1000, candidates_token_count=50, thoughts_token_count=200)
+            return SimpleNamespace(text=ANSWER, usage_metadata=meta)
+
+    p = provider(WithUsage())
+    p.suggest(request_)
+    p.suggest(request_)
+    assert p.usage == {"calls": 2, "prompt_tokens": 2000, "output_tokens": 100, "thinking_tokens": 400}
+
+
 def test_non_rate_limit_errors_are_not_retried(request_):
     sleeps = []
     models = FakeModels(error=ValueError("bad request"))
