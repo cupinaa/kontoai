@@ -4,19 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KontoAI</title>
-  <link rel="icon" href="/static/logo/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/brand/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="/static/brand/favicon-16.png" sizes="16x16" type="image/png">
+  <link rel="apple-touch-icon" href="/static/brand/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <div class="app">
     <header class="topbar">
       <div class="brand" aria-label="KontoAI">
-        <svg class="brand-mark" viewBox="0 0 30 6" fill="none" aria-hidden="true">
-          <rect x="0" y="0" width="6" height="6" rx="1.5" fill="#C9CED5"/>
-          <rect x="8" y="0" width="6" height="6" rx="1.5" fill="#C9CED5"/>
-          <rect x="16" y="0" width="6" height="6" rx="1.5" fill="#C9CED5"/>
-          <rect x="24" y="0" width="6" height="6" rx="1.5" fill="#0A84FF"/>
-        </svg>
+        <img class="brand-mark" src="/static/brand/mascot_head.png" alt="" width="38" height="31">
         <span class="brand-word">konto<b>ai</b></span>
       </div>
       <label class="client" id="client-picker" hidden>
@@ -26,6 +23,7 @@
     </header>
 
     <main class="main">
+      <img class="mascot" id="mascot" src="/static/brand/mascot_full.png" alt="" width="170" height="175">
       <label class="drop" id="drop">
         <input type="file" id="file" accept=".xml,text/xml,application/xml">
         <svg class="drop-icon" viewBox="0 0 48 48" aria-hidden="true">
@@ -52,6 +50,11 @@
         <div class="toolbar">
           <span class="muted" id="item-count"></span>
           <button class="btn-primary" id="confirm-all" type="button">Potvrdi sve usklađene</button>
+        </div>
+
+        <div class="all-done" id="all-done" hidden>
+          <img src="/static/brand/mascot_head.png" alt="" width="34" height="28">
+          <span>Sve stavke su potvrđene.</span>
         </div>
 
         <div class="table-card">

@@ -4,90 +4,90 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KontoAI — logo</title>
-  <link rel="icon" href="/static/logo/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/brand/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="/static/brand/favicon-16.png" sizes="16x16" type="image/png">
   <style>
     :root {
-      --bg: #f5f6f8; --surface: #fff; --line: #e8eaee; --text: #1d1f23; --text-2: #5d636d;
-      --gray: #c9ced5; --blue: #0a84ff; --ink: #3c4650;
+      --bg: #f5f6f8; --line: #e8eaee; --text: #1d1f23; --text-2: #5d636d;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
     }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.5; }
     main { max-width: 1080px; margin: 0 auto; padding: 56px 24px 72px; }
     h1 { font-size: 28px; line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 6px; font-weight: 650; }
-    .sub { color: var(--text-2); margin: 0 0 36px; max-width: 620px; }
+    .sub { color: var(--text-2); margin: 0 0 36px; max-width: 640px; }
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-    .card { border-radius: 18px; padding: 40px 36px; display: flex; flex-direction: column; gap: 36px; border: 1px solid var(--line); }
-    .light { background: var(--surface); }
-    .dark { background: #16181c; border-color: #16181c; }
+    .card { border-radius: 18px; padding: 36px; display: flex; flex-direction: column; gap: 32px; border: 1px solid var(--line); }
+    .light { background: #fff; }
+    .dark { background: #121a33; border-color: #121a33; }
     .label { font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .06em; }
-    .dark .label { color: #9aa1ab; }
+    .dark .label { color: #a7b0c4; }
 
-    .logo { display: inline-flex; align-items: center; }
-    .mark { display: block; flex: none; }
-    .word { font-weight: 500; letter-spacing: -0.02em; color: var(--ink); line-height: 1; }
-    .word b { color: var(--blue); font-weight: 500; }
-    .dark .word { color: #e6e9ed; }
+    .figures { display: flex; align-items: flex-end; gap: 32px; flex-wrap: wrap; }
+    .figures img { display: block; height: auto; }
 
-    .xl .mark { width: 110px; height: 22px; } .xl { gap: 18px; } .xl .word { font-size: 52px; }
-    .md .mark { width: 40px; height: 8px; } .md { gap: 10px; } .md .word { font-size: 19px; }
-    .sm .mark { width: 30px; height: 6px; } .sm { gap: 8px; } .sm .word { font-size: 14px; }
+    .lockup { display: inline-flex; align-items: center; }
+    .lockup img { display: block; height: auto; }
+    .word { font-weight: 500; letter-spacing: -0.02em; color: #121a33; line-height: 1; }
+    .word b { color: #1f7aff; font-weight: 500; }
+    .dark .word { color: #f2f4f8; }
+    .lg { gap: 16px; } .lg img { width: 84px; } .lg .word { font-size: 46px; }
+    .md { gap: 10px; } .md img { width: 38px; } .md .word { font-size: 18px; }
+    .sm { gap: 8px; } .sm img { width: 26px; } .sm .word { font-size: 13px; }
 
-    .row { display: flex; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
-    .fav { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); }
-    .dark .fav { color: #9aa1ab; }
-    .tile { display: grid; place-items: center; border-radius: 8px; background: var(--bg); padding: 10px; }
-    .dark .tile { background: #23262c; }
-    .tile img { display: block; }
-
-    .meaning { margin-top: 28px; display: flex; align-items: center; gap: 14px; color: var(--text-2); font-size: 14px; }
-    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } .xl .word { font-size: 40px; } }
+    .icons { display: flex; align-items: flex-end; gap: 22px; color: var(--text-2); font-size: 12px; }
+    .dark .icons { color: #a7b0c4; }
+    .icon { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .icon img { display: block; }
+    .zoom { image-rendering: pixelated; }
+    /* The navy outline disappears on dark backgrounds: there the mascot sits on a light tile. */
+    .dark .tile { background: #fff; border-radius: 14px; padding: 10px; display: inline-flex; }
+    .dark .tile.sm-tile { border-radius: 8px; padding: 4px; }
+    .note { color: #a7b0c4; font-size: 13px; margin: -12px 0 0; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } .lg .word { font-size: 36px; } }
   </style>
 </head>
 <body>
   <main>
     <h1>Logo</h1>
-    <p class="sub">Četiri cifre konta: prve tri daje knjigovodstveni program, četvrtu — analitiku — KontoAI.</p>
-
-    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-      <symbol id="mark" viewBox="0 0 30 6">
-        <rect x="0" y="0" width="6" height="6" rx="1.5" fill="#C9CED5"/>
-        <rect x="8" y="0" width="6" height="6" rx="1.5" fill="#C9CED5"/>
-        <rect x="16" y="0" width="6" height="6" rx="1.5" fill="#C9CED5"/>
-        <rect x="24" y="0" width="6" height="6" rx="1.5" fill="#0A84FF"/>
-      </symbol>
-    </svg>
+    <p class="sub">Vodomar sa notesom. Ceo lik je na početnom ekranu, a glava stoji uz natpis u gornjoj traci i kao ikonica u tabu pregledača.</p>
 
     <div class="grid">
       <section class="card light">
         <span class="label">Bela pozadina</span>
-        <span class="logo xl"><svg class="mark"><use href="#mark"/></svg><span class="word">konto<b>ai</b></span></span>
-        <span class="logo md"><svg class="mark"><use href="#mark"/></svg><span class="word">konto<b>ai</b></span></span>
-        <span class="logo sm"><svg class="mark"><use href="#mark"/></svg><span class="word">konto<b>ai</b></span></span>
-        <div class="row">
-          <div class="fav"><div class="tile"><img src="/static/logo/favicon.svg" width="48" height="48" alt=""></div>48</div>
-          <div class="fav"><div class="tile"><img src="/static/logo/favicon.svg" width="32" height="32" alt=""></div>32</div>
-          <div class="fav"><div class="tile"><img src="/static/logo/favicon.svg" width="16" height="16" alt=""></div>16</div>
+        <div class="figures">
+          <img src="/static/brand/mascot_full.png" alt="Ceo lik" width="190">
+          <img src="/static/brand/mascot_head.png" alt="Glava" width="150">
+        </div>
+        <span class="lockup lg"><img src="/static/brand/mascot_head.png" alt=""><span class="word">konto<b>ai</b></span></span>
+        <span class="lockup md"><img src="/static/brand/mascot_head.png" alt=""><span class="word">konto<b>ai</b></span></span>
+        <span class="lockup sm"><img src="/static/brand/mascot_head.png" alt=""><span class="word">konto<b>ai</b></span></span>
+        <div class="icons">
+          <div class="icon"><img src="/static/brand/favicon-32.png" width="32" height="32" alt="">32 px</div>
+          <div class="icon"><img src="/static/brand/favicon-16.png" width="16" height="16" alt="">16 px</div>
+          <div class="icon"><img class="zoom" src="/static/brand/favicon-32.png" width="64" height="64" alt="">32 px uvećano</div>
+          <div class="icon"><img class="zoom" src="/static/brand/favicon-16.png" width="64" height="64" alt="">16 px uvećano</div>
         </div>
       </section>
 
       <section class="card dark">
         <span class="label">Tamna pozadina</span>
-        <span class="logo xl"><svg class="mark"><use href="#mark"/></svg><span class="word">konto<b>ai</b></span></span>
-        <span class="logo md"><svg class="mark"><use href="#mark"/></svg><span class="word">konto<b>ai</b></span></span>
-        <span class="logo sm"><svg class="mark"><use href="#mark"/></svg><span class="word">konto<b>ai</b></span></span>
-        <div class="row">
-          <div class="fav"><div class="tile"><img src="/static/logo/favicon.svg" width="48" height="48" alt=""></div>48</div>
-          <div class="fav"><div class="tile"><img src="/static/logo/favicon.svg" width="32" height="32" alt=""></div>32</div>
-          <div class="fav"><div class="tile"><img src="/static/logo/favicon.svg" width="16" height="16" alt=""></div>16</div>
+        <p class="note">Tamni obris lika se gubi na tamnoj podlozi, pa lik ovde stoji na svetloj pločici.</p>
+        <div class="figures">
+          <span class="tile"><img src="/static/brand/mascot_full.png" alt="Ceo lik" width="170"></span>
+          <span class="tile"><img src="/static/brand/mascot_head.png" alt="Glava" width="130"></span>
+        </div>
+        <span class="lockup lg"><span class="tile"><img src="/static/brand/mascot_head.png" alt=""></span><span class="word">konto<b>ai</b></span></span>
+        <span class="lockup md"><span class="tile sm-tile"><img src="/static/brand/mascot_head.png" alt=""></span><span class="word">konto<b>ai</b></span></span>
+        <span class="lockup sm"><span class="tile sm-tile"><img src="/static/brand/mascot_head.png" alt=""></span><span class="word">konto<b>ai</b></span></span>
+        <div class="icons">
+          <div class="icon"><img src="/static/brand/favicon-32.png" width="32" height="32" alt="">32 px</div>
+          <div class="icon"><img src="/static/brand/favicon-16.png" width="16" height="16" alt="">16 px</div>
+          <div class="icon"><img class="zoom" src="/static/brand/favicon-32.png" width="64" height="64" alt="">32 px uvećano</div>
+          <div class="icon"><img class="zoom" src="/static/brand/favicon-16.png" width="64" height="64" alt="">16 px uvećano</div>
         </div>
       </section>
     </div>
-
-    <p class="meaning">
-      <svg class="mark" width="40" height="8" aria-hidden="true"><use href="#mark"/></svg>
-      Znak bez teksta je i favicon.
-    </p>
   </main>
 </body>
 </html>

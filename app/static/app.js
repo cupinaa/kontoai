@@ -99,7 +99,9 @@ function resetInvoice() {
   state.rows = [];
   closePanel();
   $("result").hidden = true;
+  $("all-done").hidden = true;
   $("drop").hidden = false;
+  $("mascot").hidden = false;
   $("file").value = "";
 }
 
@@ -160,6 +162,7 @@ function renderInvoice(data) {
 
   $("item-count").textContent = `${state.rows.length} ${state.rows.length === 1 ? "stavka" : "stavki"}`;
   $("drop").hidden = true;
+  $("mascot").hidden = true;
   $("result").hidden = false;
   updateConfirmAll();
 }
@@ -206,6 +209,9 @@ function updateConfirmAll() {
   const btn = $("confirm-all");
   btn.disabled = ready === 0;
   btn.textContent = ready ? `Potvrdi sve usklađene (${ready})` : "Potvrdi sve usklađene";
+  const allDone = state.rows.length > 0 && state.rows.every((r) => r.confirmed);
+  $("all-done").hidden = !allDone;
+  btn.hidden = allDone;
 }
 
 async function confirmRow(index, { quiet = false } = {}) {

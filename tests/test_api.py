@@ -32,10 +32,26 @@ def test_index_page_is_served(client):
 def test_logo_preview_and_static_assets(client):
     page = client.get("/logo-preview")
     assert page.status_code == 200 and "konto<b>ai</b>" in page.text
-    for path in ("/static/logo/mark.svg", "/static/logo/favicon.svg", "/static/clients.json"):
+    for path in ("/static/brand/mascot_full.png", "/static/brand/mascot_head.png", "/static/brand/favicon-32.png",
+                 "/static/brand/favicon-16.png", "/static/clients.json"):
         assert client.get(path).status_code == 200, path
     clients = client.get("/static/clients.json").json()
     assert clients[0]["id"] == "K001" and all(c["delatnost"] for c in clients)
+
+
+def test_brand_assets_are_transparent_and_sized():
+    from PIL import Image
+
+    from app.config import BASE_DIR
+
+    brand = BASE_DIR / "app" / "static" / "brand"
+    for name in ("mascot_full.png", "mascot_head.png"):
+        img = Image.open(brand / name)
+        assert img.mode == "RGBA"
+        assert img.getpixel((0, 0))[3] == 0  # corner is transparent background
+        assert img.width >= 300
+    assert Image.open(brand / "favicon-32.png").size == (32, 32)
+    assert Image.open(brand / "favicon-16.png").size == (16, 16)
 
 
 def test_index_has_no_developer_labels(client):

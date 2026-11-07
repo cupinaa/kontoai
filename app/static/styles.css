@@ -8,9 +8,9 @@
   --line-strong: #d9dce2;
   --text: #1d1f23;
   --text-2: #646a75;
-  --accent: #0a84ff;        /* logo blue: marks, focus, primary button */
-  --accent-ink: #005bc4;    /* darker blue, only for small text */
-  --accent-soft: #eaf3ff;
+  --accent: #2c84e4;        /* the kingfisher's blue: marks, focus, primary button */
+  --accent-ink: #1a5fb0;    /* darker blue, only for small text */
+  --accent-soft: #ebf3fd;
   --ok: #1f9d55;
   --ok-soft: #e6f6ed;
   --warn: #e0a100;
@@ -60,10 +60,26 @@ button, select, input { font: inherit; color: inherit; }
 @media (prefers-reduced-transparency: reduce) { .topbar { background: var(--surface); backdrop-filter: none; } }
 
 .brand { display: flex; align-items: center; gap: 10px; }
-.brand-mark { width: 40px; height: 8px; flex: none; }
+.brand-mark { width: 38px; height: auto; flex: none; display: block; }
 /* Logotype colours are fixed (exempt from WCAG contrast as a logo). */
-.brand-word { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; color: #3c4650; }
-.brand-word b { color: #0a84ff; font-weight: 500; }
+.brand-word { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; color: #121a33; }
+.brand-word b { color: #1f7aff; font-weight: 500; }
+
+/* Start screen: the kingfisher above the drop zone, appearing softly. */
+.mascot {
+  display: block; margin: 8px auto 20px; width: 170px; height: auto;
+  animation: appear 200ms var(--ease) both;
+}
+@keyframes appear { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+
+/* Shown when every line of the invoice is confirmed. */
+.all-done {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  margin: 18px 0 0; padding: 14px 16px;
+  color: var(--text); font-weight: 500;
+  animation: appear 200ms var(--ease) both;
+}
+.all-done img { display: block; }
 
 .main { max-width: 1120px; margin: 0 auto; padding: 32px 32px 64px; min-width: 0; }
 
@@ -122,7 +138,7 @@ button, select, input { font: inherit; color: inherit; }
   transition: background-color var(--fast) var(--ease), transform 100ms var(--ease), opacity var(--fast) var(--ease);
 }
 .btn-primary { background: var(--accent); color: #fff; border: 0; }
-.btn-primary:hover { background: #0077ea; }
+.btn-primary:hover { background: #2277d6; }
 .btn-primary:active, .btn-ghost:active { transform: scale(0.97); }
 .btn-primary:disabled { background: var(--surface-2); color: var(--text-2); cursor: default; transform: none; }
 .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
@@ -278,6 +294,6 @@ select.analytic:disabled { cursor: default; color: var(--text-2); }
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
   .panel { transition: opacity var(--fast) linear; transform: none; opacity: 0; visibility: hidden; }
   .panel.open { opacity: 1; visibility: visible; }
-  .fade-in { animation: none; }
+  .fade-in, .mascot, .all-done { animation: none; }
   .btn-primary:active, .btn-ghost:active, .icon-btn:active, .confirm:active, .drop:active { transform: none; }
 }
