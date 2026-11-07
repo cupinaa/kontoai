@@ -31,8 +31,8 @@ def test_index_page_is_served(client):
 
 def test_logo_preview_and_static_assets(client):
     page = client.get("/logo-preview")
-    assert page.status_code == 200 and "Preporuka" in page.text
-    for path in ("/static/logo/mark-k.svg", "/static/logo/mark-k-check.svg", "/static/clients.json"):
+    assert page.status_code == 200 and "konto<b>ai</b>" in page.text
+    for path in ("/static/logo/mark.svg", "/static/logo/favicon.svg", "/static/clients.json"):
         assert client.get(path).status_code == 200, path
     clients = client.get("/static/clients.json").json()
     assert clients[0]["id"] == "K001" and all(c["delatnost"] for c in clients)

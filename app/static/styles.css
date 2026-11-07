@@ -8,8 +8,8 @@
   --line-strong: #d9dce2;
   --text: #1d1f23;
   --text-2: #646a75;
-  --accent: #0a7cff;        /* logo blue: marks, focus, primary button */
-  --accent-ink: #005bc4;    /* the same blue, dark enough for small text */
+  --accent: #0a84ff;        /* logo blue: marks, focus, primary button */
+  --accent-ink: #005bc4;    /* darker blue, only for small text */
   --accent-soft: #eaf3ff;
   --ok: #1f9d55;
   --ok-soft: #e6f6ed;
@@ -57,9 +57,10 @@ button, select, input { font: inherit; color: inherit; }
 }
 
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; text-decoration: none; }
-.brand-mark { width: 26px; height: 26px; flex: none; }
-.brand-word { font-size: 19px; font-weight: 650; letter-spacing: -0.03em; color: #5b6370; }
-.brand-word b { color: var(--accent); font-weight: 650; }
+.brand-mark { width: 40px; height: 8px; flex: none; }
+/* Logotype colours are fixed (exempt from WCAG contrast as a logo). */
+.brand-word { font-size: 19px; font-weight: 500; letter-spacing: -0.02em; color: #3c4650; }
+.brand-word b { color: #0a84ff; font-weight: 500; }
 
 .nav { display: flex; flex-direction: column; gap: 2px; }
 .nav a {
@@ -132,7 +133,7 @@ button, select, input { font: inherit; color: inherit; }
   transition: background-color var(--fast) var(--ease), transform 100ms var(--ease), opacity var(--fast) var(--ease);
 }
 .btn-primary { background: var(--accent); color: #fff; border: 0; }
-.btn-primary:hover { background: #006fe8; }
+.btn-primary:hover { background: #0077ea; }
 .btn-primary:active, .btn-ghost:active { transform: scale(0.97); }
 .btn-primary:disabled { background: var(--surface-2); color: var(--text-2); cursor: default; transform: none; }
 .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
