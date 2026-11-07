@@ -1,9 +1,9 @@
 "use strict";
 
-/* KontoAI web page. Same API as before; only the presentation changed. */
+/* KontoAI web page: one screen. Same API as before; history and the analytic plan work in the
+   background (confirmations are stored, the plan feeds the analytic dropdown). */
 
 const $ = (id) => document.getElementById(id);
-const PAGES = { fakture: "Fakture", istorija: "Istorija", "kontni-plan": "Kontni plan" };
 const CHECK_PATH = '<path d="M5 12.5l4.2 4.2L19 7"/>';
 const STATUS_OK = '<span class="status status-ok" aria-label="Usklađeno"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="8"/><path d="M4.6 8.3l2.2 2.2 4.6-4.8"/></svg></span>';
 const STATUS_WARN = '<span class="status status-warn" aria-label="Za proveru"></span>';
@@ -13,7 +13,6 @@ const state = {
   clients: [],
   clientId: null,
   plan: [],              // analytic accounts of the current client
-  planStatus: null,
   invoice: null,
   rows: [],              // { item, s, base, choice: {konto, analytic}, confirmed, tr }
   selected: -1,
@@ -76,27 +75,13 @@ function readyToConfirm(row) {
   return !row.confirmed && isAligned(row) && (analyticOptions(row.choice.konto).length === 0 || row.choice.analytic);
 }
 
-/* ------------------------------------------------------------------ navigation */
-
-function route() {
-  const page = (location.hash.replace(/^#\//, "") || "fakture");
-  const name = PAGES[page] ? page : "fakture";
-  document.querySelectorAll(".page").forEach((el) => { el.hidden = el.dataset.page !== name; });
-  document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.page === name));
-  $("page-title").textContent = PAGES[name];
-  if (name !== "fakture") closePanel();
-  if (name === "istorija") loadHistory();
-  if (name === "kontni-plan") renderPlan();
-}
+/* ------------------------------------------------------------------ client */
 
 async function loadPlan() {
   try {
-    const plan = await api(`/analytic-plan/${encodeURIComponent(state.clientId)}`);
-    state.plan = plan.accounts;
-    state.planStatus = plan.status;
+    state.plan = (await api(`/analytic-plan/${encodeURIComponent(state.clientId)}`)).accounts;
   } catch (err) {
     state.plan = [];
-    state.planStatus = null;
   }
 }
 
@@ -105,9 +90,6 @@ async function selectClient(id) {
   storage("kontoai.client", id);
   await loadPlan();
   resetInvoice();
-  const page = location.hash.replace(/^#\//, "");
-  if (page === "istorija") loadHistory();
-  if (page === "kontni-plan") renderPlan();
 }
 
 /* ------------------------------------------------------------------ upload */
@@ -386,50 +368,6 @@ function renderPanel() {
   $("panel-confirm").addEventListener("click", () => confirmRow(index));
 }
 
-/* ------------------------------------------------------------------ history */
-
-async function loadHistory() {
-  const tbody = $("history-rows");
-  let rows = [];
-  try {
-    rows = await api(`/history/${encodeURIComponent(state.clientId)}`);
-  } catch (err) {
-    toast(err.message);
-  }
-  tbody.innerHTML = rows.length
-    ? rows.map((r) => `
-        <tr class="fade-in">
-          <td class="muted">${esc(date(r.confirmed_at))}</td>
-          <td><div class="desc">${esc(r.item_name)}</div></td>
-          <td class="muted">${esc(r.supplier_name || "—")}</td>
-          <td><span class="konto">${esc(r.konto)}</span></td>
-          <td>${r.analytic_konto ? `${esc(r.analytic_konto)} <span class="muted">${esc(r.analytic_name || "")}</span>` : '<span class="dash">—</span>'}</td>
-          <td class="col-action" title="${r.corrected || r.analytic_corrected ? "Ispravljeno" : "Potvrđeno"}">${r.corrected || r.analytic_corrected ? STATUS_WARN : STATUS_OK}</td>
-        </tr>`).join("")
-    : '<tr class="empty-row"><td colspan="6">Još nema potvrđenih stavki.</td></tr>';
-}
-
-/* ------------------------------------------------------------------ chart of accounts */
-
-function renderPlan() {
-  const box = $("plan");
-  $("plan-note").hidden = state.planStatus !== "probni";
-  if (!state.plan.length) {
-    box.innerHTML = '<div class="plan-empty">Za ovog klijenta nema analitičkog plana.</div>';
-    return;
-  }
-  const groups = new Map();
-  state.plan.forEach((a) => {
-    if (!groups.has(a.sintetika)) groups.set(a.sintetika, []);
-    groups.get(a.sintetika).push(a);
-  });
-  box.innerHTML = [...groups.entries()].map(([sint, list]) => `
-    <section class="plan-group fade-in">
-      <div class="plan-head"><span>${esc(sint)}</span><span>${esc(kontoName(sint))}</span></div>
-      ${list.map((a) => `<div class="plan-row"><span>${esc(a.konto)}</span><span>${esc(a.naziv)}</span></div>`).join("")}
-    </section>`).join("");
-}
-
 /* ------------------------------------------------------------------ start */
 
 function setupDrop() {
@@ -456,8 +394,8 @@ async function init() {
   const initial = clients.some((c) => c.id === saved) ? saved : (clients[0] && clients[0].id) || "K001";
   select.value = initial;
   select.addEventListener("change", () => selectClient(select.value));
+  $("client-picker").hidden = clients.length <= 1;  // one client: nothing to choose, show nothing
   await selectClient(initial);
-  route();
 }
 
 setupDrop();
@@ -465,5 +403,4 @@ $("new-invoice").addEventListener("click", resetInvoice);
 $("confirm-all").addEventListener("click", confirmAll);
 $("panel-close").addEventListener("click", closePanel);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePanel(); });
-window.addEventListener("hashchange", route);
 init();

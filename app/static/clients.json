@@ -1,6 +1,3 @@
 [
-  {"id": "K001", "naziv": "Dijetetski proizvodi", "delatnost": "proizvodnja dijetetskih proizvoda"},
-  {"id": "101000001", "naziv": "Brzi Kurir", "delatnost": "Kurirske usluge i dostava paketa"},
-  {"id": "102000002", "naziv": "Kod Studio", "delatnost": "Razvoj softvera po narudžbini"},
-  {"id": "103000003", "naziv": "Market Kod Ćoška", "delatnost": "Maloprodaja prehrambenih proizvoda"}
+  {"id": "K001", "naziv": "Dijetetski proizvodi", "delatnost": "proizvodnja dijetetskih proizvoda"}
 ]
