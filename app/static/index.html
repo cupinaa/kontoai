@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KontoAI — predlog kontiranja</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">K</span>
+        <div>
+          <div class="brand-name">KontoAI</div>
+          <div class="brand-sub">Predlog kontiranja ulaznih faktura</div>
+        </div>
+      </div>
+      <span id="status" class="pill pill-muted">Povezivanje…</span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <h1>Učitaj SEF fakturu</h1>
+      <p class="muted">UBL 2.1 XML iz Sistema e-faktura. Za svaku stavku sistem predlaže konto: prvo iz istorije klijenta, zatim po pravilima, a tek na kraju pomoću LLM-a (sa maskiranim podacima).</p>
+
+      <form id="upload-form" class="form-grid">
+        <label class="drop" id="drop">
+          <input type="file" id="file" name="file" accept=".xml,text/xml,application/xml" required>
+          <span class="drop-title" id="drop-title">Izaberi XML fajl</span>
+          <span class="muted small">ili ga prevuci ovde</span>
+        </label>
+
+        <div class="field">
+          <label for="activity">Delatnost klijenta</label>
+          <input id="activity" name="client_activity" list="activity-examples" required minlength="2"
+                 placeholder="npr. Kurirske usluge i dostava paketa">
+          <datalist id="activity-examples">
+            <option value="Kurirske usluge i dostava paketa">
+            <option value="Razvoj softvera po narudžbini">
+            <option value="Maloprodaja prehrambenih proizvoda">
+            <option value="Proizvodnja hleba i peciva">
+            <option value="Trgovina na malo motornim gorivima">
+          </datalist>
+        </div>
+
+        <div class="field">
+          <label for="client-id">ID klijenta <span class="muted">(opciono)</span></label>
+          <input id="client-id" name="client_id" placeholder="podrazumevano: PIB kupca sa fakture">
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary" id="submit">Predloži kontiranje</button>
+        </div>
+      </form>
+      <div id="error" class="alert" hidden></div>
+    </section>
+
+    <section id="result" class="card" hidden>
+      <div class="result-head">
+        <div>
+          <h2 id="invoice-title">Faktura</h2>
+          <dl class="meta" id="invoice-meta"></dl>
+        </div>
+        <div class="stats" id="stats"></div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="items">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Stavka</th>
+              <th class="num">Iznos</th>
+              <th>Predlog</th>
+              <th>Izvor</th>
+              <th>Sigurnost</th>
+              <th>Obrazloženje</th>
+              <th>Konto za knjiženje</th>
+            </tr>
+          </thead>
+          <tbody id="items"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="history" class="card" hidden>
+      <div class="result-head">
+        <h2>Istorija potvrđenih kontiranja</h2>
+        <button class="btn" id="refresh-history" type="button">Osveži</button>
+      </div>
+      <div class="table-wrap">
+        <table class="items">
+          <thead>
+            <tr><th>Vreme</th><th>Stavka</th><th>Dobavljač</th><th>Konto</th><th>Predlog</th><th>Status</th></tr>
+          </thead>
+          <tbody id="history-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap footer muted small">
+    Spisak konta je izvod iz kontnog okvira (Sl. glasnik RS 89/2020) i nije verifikovan — pre upotrebe ga mora potvrditi knjigovođa.
+    Predlozi su pomoć knjigovođi, a ne zamena za njegovu odluku.
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
