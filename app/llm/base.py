@@ -98,20 +98,26 @@ class AnalyticRequest(BaseModel):
     konto: str
     konto_naziv: str
     options: list[AnalyticOption]
+    # Synthetic accounts the model may name as a better fit when no offered analytic fits well.
+    chart: list[AnalyticOption] = Field(default_factory=list)
 
 
 class AnalyticChoice(BaseModel):
     konto: str = Field(description="Analitički konto iz ponuđenog spiska")
     sigurnost: float = Field(description="Sigurnost od 0 do 1")
     obrazlozenje: str = Field(description="Kratko obrazloženje na srpskom jeziku")
+    dobro_odgovara: bool = Field(default=True, description="Da li izabrani konto dobro odgovara opisu stavke")
+    bolji_konto: str = Field(default="", description="Trocifreni konto koji bi bolje odgovarao, ili prazno")
 
 
 ANALYTIC_SYSTEM_PROMPT = """Ti si iskusan knjigovođa u Republici Srbiji. Sintetički (trocifreni) konto stavke
 je već određen. Tvoj zadatak je da izabereš analitički konto iz kontnog plana klijenta.
 
 Pravila:
-- Smeš da izabereš ISKLJUČIVO jedan od ponuđenih analitičkih konta. Nikada ne izmišljaj konto.
-- Ako nijedan ponuđeni konto ne odgovara dobro ili je opis nejasan, izaberi najbliži, ali stavi sigurnost ispod 0.6.
+- UVEK izaberi jedan od ponuđenih analitičkih konta — najbliži opisu stavke. Nikada ne izmišljaj konto.
+- Ako je opis nejasan ili izbor nije očigledan, stavi sigurnost ispod 0.6.
+- Ako nijedan ponuđeni konto ne odgovara dobro, postavi "dobro_odgovara" na false. Ako je jasno da bi stavka
+  bolje pristajala na drugi sintetički konto sa spiska sintetičkih konta, upiši ga u "bolji_konto"; inače ostavi prazno.
 - Oznake u uglastim zagradama (npr. [DOBAVLJAC_1]) zamenjuju poverljive podatke; ne pokušavaj da ih pogodiš.
 - "obrazlozenje" piši na srpskom jeziku (latinica), u jednoj rečenici.
 """
@@ -126,6 +132,9 @@ def build_analytic_prompt(request: AnalyticRequest) -> str:
         "Ponuđeni analitički konti:",
     ]
     lines.extend(f"- {o.konto} {o.naziv}" for o in request.options)
+    if request.chart:
+        lines += ["", "Sintetička konta (samo za \"bolji_konto\"):"]
+        lines.extend(f"- {o.konto} {o.naziv}" for o in request.chart)
     return "\n".join(lines)
 
 

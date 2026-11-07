@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 class AnalyticAccount(BaseModel):
     konto: str = Field(pattern=r"^\d{4,}$")
     naziv: str
+    kratko: str | None = None  # short display name for the table ("Zakup magacina"); falls back to naziv
     probni: bool = False
     izvor: str | None = None
 

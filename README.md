@@ -38,7 +38,7 @@ These are real runs with Gemini (`gemini-3.6-flash`) through the web page, on 20
 
 ![First upload](docs/screenshots/01_prvo_ubacivanje.png)
 
-- **Konto column:** a green check means the system's own 3-digit account matches Iris, and a yellow dot means it needs a look.
+- **Konto column:** a green check means the system's own 3-digit account matches Iris *and* the analytic account is settled. A yellow dot means the row needs a look. *(These screenshots predate the merged Konto column described under [Analytic account](#analytic-4th-digit-account).)*
 - **Green rows 1–5:** history and rules (or the LLM) agree with Iris.
   - The analytic account is preselected: by the LLM from the offered list, or directly when the plan has only one option.
   - *Potvrdi sve usklađene (5)* confirms them in one click.
@@ -165,9 +165,18 @@ After the 3-digit account is known, KontoAI looks only at the client's analytic 
 | 1 | **Item history**, then **supplier history** | 0.95 / 0.90 item, 0.85 supplier | The same rules as for the 3-digit account: same supplier and similar text, or a supplier with at least two confirmations, all on one analytic account. A history suggestion is **only ever below the current 3-digit account**, which is the Iris account when one is given. |
 | 2 | **Only one option** | 0.90 | The plan has exactly one analytic account below the 3-digit one, so there is nothing to choose and no LLM call is made. |
 | 3 | **LLM** | from the model | Gets the masked item text, the client's activity and *only the offered options*; the JSON schema `enum` contains just those codes. |
-| 4 | **Validation** | — | An answer outside the offered list is rejected. If the model's confidence is below the threshold, nothing is preselected; the model's closest guess appears in the explanation. |
+| 4 | **Validation** | — | An answer outside the offered list is rejected. The system **always preselects the best analytic account**, so the accountant only confirms or changes it and never starts from an empty field. An unsure suggestion is preselected but flagged: it gets a yellow dot and is left out of *Potvrdi sve usklađene*. When the model says no offered analytic fits well (e.g. *"Zakup parking mesta"* under 539, where the plan only has municipal services and safety at work), the closest one is still preselected. The panel then says *"Nijedna analitika ne odgovara dobro"* and offers the better 3-digit account (e.g. 533) when the model names one. Without a usable LLM answer (no key, an error, or the call cap reached), the option whose name shares the most words with the item is preselected and flagged. |
 
-The result is in `suggestion.analytic`: `konto`, `naziv`, `source` (`history` / `only_option` / `llm` / `none`), `confidence`, `explanation`, `needs_review` and `options`, the full list for the dropdown. If the client has no analytic plan, `suggestion.analytic` is `null`.
+The result is in `suggestion.analytic`:
+- `konto`, `naziv`;
+- `source`: `history`, `only_option`, `llm`, `guess` or `none`, where `none` means there is no analytic account below the 3-digit one;
+- `confidence`, `explanation`, `needs_review`;
+- `poor_fit`, `better_konto` and `better_konto_name`;
+- `options`, the full list for the picker.
+
+If the client has no analytic plan, `suggestion.analytic` is `null`.
+
+In the table, the 3-digit and the analytic account are one column. It shows the full account large, with the analytic digit in blue (e.g. 533**1**), and the plan's short name below (`kratko`, e.g. *"Zakup magacina"*). Clicking the account opens a small picker with the other analytic accounts below the same 3-digit account. *"539 _ · Izaberi"* appears only when nothing exists below that account.
 
 `POST /confirm` stores the accountant's decision at both levels. The next invoice with the same item or supplier gets the correct 3-digit and analytic accounts straight from history, without an LLM call.
 

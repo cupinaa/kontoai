@@ -79,7 +79,7 @@ def create_app(settings: Settings | None = None, llm: LLMProvider | None = None,
             "client_id": client_id,
             "status": plan.status if plan.has_client(client_id) else None,
             "accounts": [
-                {"konto": a.konto, "naziv": a.naziv, "sintetika": a.sintetika, "probni": a.probni}
+                {"konto": a.konto, "naziv": a.naziv, "kratko": a.kratko, "sintetika": a.sintetika, "probni": a.probni}
                 for a in plan.accounts(client_id)
             ],
         }

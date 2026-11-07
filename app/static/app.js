@@ -62,17 +62,49 @@ function client() {
 
 /* ------------------------------------------------------------------ status */
 
-// Green check: matches Iris, or (without an Iris account) a confident own suggestion.
-function isAligned(row) {
+function analyticOptions(konto) {
+  return state.plan.filter((a) => a.sintetika === konto);
+}
+function syntheticAligned(row) {
   const s = row.s;
   if (s.given_konto) return s.given_check === "match";
   return Boolean(s.konto) && !s.needs_review;
 }
-function analyticOptions(konto) {
-  return state.plan.filter((a) => a.sintetika === konto);
+// The analytic part is fine when there is nothing to choose, when the accountant picked it herself,
+// or when the system's preselected analytic is confident and fits.
+function analyticSettled(row) {
+  if (!state.plan.length || analyticOptions(row.choice.konto).length === 0) return true;
+  if (!row.choice.analytic) return false;
+  if (row.analyticTouched) return true;
+  const a = row.s.analytic;
+  return Boolean(a) && a.konto === row.choice.analytic && !a.needs_review;
+}
+// Green check = the 3-digit account matches Iris (or is confident) AND the analytic account is settled.
+function isAligned(row) {
+  return syntheticAligned(row) && analyticSettled(row);
 }
 function readyToConfirm(row) {
-  return !row.confirmed && isAligned(row) && (analyticOptions(row.choice.konto).length === 0 || row.choice.analytic);
+  return !row.confirmed && isAligned(row);
+}
+
+/* Short display name for the table: the plan's "kratko" (e.g. "Zakup magacina"), else the full name. */
+function shortName(account) {
+  return (account && (account.kratko || account.naziv)) || "";
+}
+const STOP = new Set(["za", "i", "u", "na", "od", "po", "sa", "do", "troskovi", "trosak", "usluge", "usluga"]);
+function stems(text) {
+  const plain = (text || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "dj");
+  return new Set(plain.split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !STOP.has(w) && !/^\d+$/.test(w)).map((w) => w.slice(0, 5)));
+}
+function closestOption(text, options) {
+  const words = stems(text);
+  let best = options[0];
+  let score = -1;
+  options.forEach((o) => {
+    const s = [...stems(o.naziv)].filter((w) => words.has(w)).length;
+    if (s > score) { best = o; score = s; }
+  });
+  return best;
 }
 
 /* ------------------------------------------------------------------ client */
@@ -139,7 +171,8 @@ function renderInvoice(data) {
   state.rows = data.items.map(({ item, suggestion: s }) => {
     // Preselected account: the accountant's earlier decision for this item, else Iris, else the system.
     const base = (s.previous_choice && s.previous_choice.konto) || s.given_konto || s.konto;
-    return { item, s, base, choice: { konto: base, analytic: (s.analytic && s.analytic.konto) || "" }, confirmed: false };
+    return { item, s, base, choice: { konto: base, analytic: (s.analytic && s.analytic.konto) || "" },
+             confirmed: false, analyticTouched: false };
   });
 
   const tbody = $("items");
@@ -154,6 +187,7 @@ function renderInvoice(data) {
     renderRow(index);
     tr.addEventListener("click", (e) => {
       if (e.target.closest("select, button")) return;
+      closePicker();
       openPanel(index);
     });
     tr.addEventListener("keydown", (e) => {
@@ -179,31 +213,97 @@ function analyticSelect(row, cls) {
   return `<select class="${cls}${row.choice.analytic ? "" : " empty"}"${row.confirmed ? " disabled" : ""} aria-label="Analitika">${empty}${opts}</select>`;
 }
 
+/* The full account in one place: "533" + "1" (the analytic digit in blue), the short analytic name below. */
+function kontoCell(row) {
+  const konto = row.choice.konto;
+  const status = isAligned(row) ? STATUS_OK : STATUS_WARN;
+  if (!konto) {
+    return `<button type="button" class="konto-cell" data-act="panel"><span class="konto-num"><span class="k3">—</span></span>${status}
+      <span class="konto-sub">Izaberi</span></button>`;
+  }
+  if (!state.plan.length) {
+    return `<span class="konto-cell static"><span class="konto-num"><span class="k3">${esc(konto)}</span></span>${status}</span>`;
+  }
+  const options = analyticOptions(konto);
+  const chosen = options.find((o) => o.konto === row.choice.analytic);
+  if (!chosen) {
+    // No analytic chosen (normally only when nothing exists below this account): the empty blue slot.
+    const act = options.length ? "picker" : "panel";
+    const hint = options.length ? "Izaberite analitiku" : `Ispod konta ${esc(konto)} nema analitike`;
+    return `<button type="button" class="konto-cell" data-act="${act}" title="${hint}">
+      <span class="konto-num"><span class="k3">${esc(konto)}</span><span class="k4 empty">_</span></span>${status}
+      <span class="konto-sub">Izaberi</span></button>`;
+  }
+  const rest = chosen.konto.slice(konto.length);
+  return `<button type="button" class="konto-cell" data-act="picker" aria-haspopup="listbox" title="${esc(chosen.konto)} ${esc(chosen.naziv)}">
+    <span class="konto-num"><span class="k3">${esc(konto)}</span><span class="k4">${esc(rest)}</span></span>${status}
+    <span class="konto-sub">${esc(shortName(chosen))}</span></button>`;
+}
+
 function renderRow(index) {
   const row = state.rows[index];
   const { item, tr } = row;
-  const konto = row.choice.konto;
   tr.classList.toggle("confirmed", row.confirmed);
   tr.classList.toggle("selected", index === state.selected);
   tr.innerHTML = `
     <td><div class="desc">${esc(item.name)}</div></td>
     <td class="num">${money(item.amount)}</td>
-    <td><span class="konto">${konto ? esc(konto) : '<span class="dash">—</span>'}${isAligned(row) ? STATUS_OK : STATUS_WARN}</span></td>
-    <td>${analyticSelect(row, "analytic")}</td>
+    <td>${kontoCell(row)}</td>
     <td class="col-action"><button type="button" class="confirm${row.confirmed ? " done" : ""}" aria-label="Potvrdi"${row.confirmed ? " disabled" : ""}><svg viewBox="0 0 24 24">${CHECK_PATH}</svg></button></td>`;
-  tr.title = row.s.given_konto
-    ? `Iris ${row.s.given_konto} · Sistem ${row.s.konto || "—"}`
-    : `Predlog ${row.s.konto || "—"}`;
 
-  const sel = tr.querySelector("select.analytic");
-  if (sel) sel.addEventListener("change", () => {
-    row.choice.analytic = sel.value;
-    sel.classList.toggle("empty", !sel.value);
-    updateConfirmAll();
-    if (state.selected === index) renderPanel();
+  const cell = tr.querySelector("button.konto-cell");
+  if (cell) cell.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (cell.dataset.act === "picker" && !row.confirmed) openPicker(index, cell);
+    else openPanel(index);
   });
   tr.querySelector(".confirm").addEventListener("click", () => confirmRow(index));
 }
+
+/* ------------------------------------------------------------------ analytic picker (small popover) */
+
+let picker = null;
+function closePicker() {
+  if (!picker) return;
+  picker.el.remove();
+  picker = null;
+}
+function setAnalytic(index, analytic) {
+  const row = state.rows[index];
+  row.choice.analytic = analytic;
+  row.analyticTouched = true;
+  renderRow(index);
+  updateConfirmAll();
+  if (state.selected === index) renderPanel();
+}
+function openPicker(index, anchor) {
+  closePicker();
+  const row = state.rows[index];
+  const options = analyticOptions(row.choice.konto);
+  const el = document.createElement("div");
+  el.className = "picker";
+  el.setAttribute("role", "listbox");
+  el.innerHTML = options.map((o) => `
+      <button type="button" role="option" class="picker-item${o.konto === row.choice.analytic ? " current" : ""}" data-konto="${esc(o.konto)}" aria-selected="${o.konto === row.choice.analytic}">
+        <span class="picker-num">${esc(o.konto)}</span><span class="picker-name">${esc(o.naziv)}</span>
+      </button>`).join("") +
+    '<button type="button" class="picker-item picker-more" data-more="1">Drugi konto…</button>';
+  document.body.appendChild(el);
+  const box = anchor.getBoundingClientRect();
+  el.style.left = `${Math.min(box.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - el.offsetWidth - 12)}px`;
+  el.style.top = `${box.bottom + window.scrollY + 6}px`;
+  el.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    closePicker();
+    if (btn.dataset.more) openPanel(index);
+    else setAnalytic(index, btn.dataset.konto);
+  });
+  picker = { el, index };
+  const current = el.querySelector(".current") || el.querySelector(".picker-item");
+  if (current) current.focus();
+}
+document.addEventListener("click", (e) => { if (picker && !picker.el.contains(e.target)) closePicker(); });
 
 function updateConfirmAll() {
   const ready = state.rows.filter(readyToConfirm).length;
@@ -221,8 +321,8 @@ async function confirmRow(index, { quiet = false } = {}) {
   if (!row.choice.konto) { openPanel(index); return false; }
   if (analyticOptions(row.choice.konto).length && !row.choice.analytic) {
     if (!quiet) toast("Izaberite analitiku");
-    const sel = row.tr.querySelector("select.analytic");
-    if (sel) sel.focus();
+    const cell = row.tr.querySelector("button.konto-cell");
+    if (cell && !quiet) cell.click();
     return false;
   }
   const s = row.s;
@@ -352,25 +452,36 @@ function renderPanel() {
     <div>
       <div class="field-label">Analitika</div>
       ${options.length ? analyticSelect(row, "panel-analytic") : '<span class="dash">Nema analitike ispod ovog konta</span>'}
-      ${a && a.explanation && options.length && a.source !== "none" && !s.previous_choice ? `<p class="reason reason-sub">${esc(a.explanation)}</p>` : ""}
+      ${a && a.poor_fit && a.konto === row.choice.analytic ? `
+        <div class="poor-fit">
+          <span>Nijedna analitika ne odgovara dobro</span>
+          ${a.better_konto && a.better_konto !== row.choice.konto ? `<button type="button" class="btn-ghost btn-sm" id="use-better">Predlog: ${esc(a.better_konto)} ${esc(a.better_konto_name || "")}</button>` : ""}
+        </div>` : ""}
+      ${a && a.explanation && options.length && a.source !== "none" && !s.previous_choice ? `<p class="reason reason-sub">${esc(a.explanation.replace(/^Nijedna analitika ne odgovara dobro\.\s*/, ""))}</p>` : ""}
     </div>` : ""}
     <button class="btn-primary" id="panel-confirm" type="button"${row.confirmed ? " disabled" : ""}>${row.confirmed ? "Potvrđeno" : "Potvrdi"}</button>`;
 
-  const kontoSel = $("panel-konto");
-  kontoSel.addEventListener("change", () => {
-    row.choice.konto = kontoSel.value;
-    const opts = analyticOptions(row.choice.konto);
+  const switchKonto = (konto) => {
+    row.choice.konto = konto;
+    const opts = analyticOptions(konto);
     if (!opts.some((o) => o.konto === row.choice.analytic)) {
-      // Keep the system's analytic only if it belongs to the chosen account.
-      row.choice.analytic = a && opts.some((o) => o.konto === a.konto) ? a.konto : "";
+      // Always preselect: the system's analytic if it belongs to the new account, else the closest by wording.
+      row.choice.analytic = a && opts.some((o) => o.konto === a.konto) ? a.konto
+        : (opts.length ? closestOption(row.item.name, opts).konto : "");
+      row.analyticTouched = false;
     }
     renderRow(index);
     updateConfirmAll();
     renderPanel();
-  });
+  };
+  const kontoSel = $("panel-konto");
+  kontoSel.addEventListener("change", () => switchKonto(kontoSel.value));
+  const better = $("use-better");
+  if (better) better.addEventListener("click", () => switchKonto(a.better_konto));
   const analytic = $("panel-body").querySelector("select.panel-analytic");
   if (analytic) analytic.addEventListener("change", () => {
     row.choice.analytic = analytic.value;
+    row.analyticTouched = true;
     renderRow(index);
     updateConfirmAll();
   });
@@ -411,5 +522,9 @@ setupDrop();
 $("new-invoice").addEventListener("click", resetInvoice);
 $("confirm-all").addEventListener("click", confirmAll);
 $("panel-close").addEventListener("click", closePanel);
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePanel(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (picker) closePicker();
+  else closePanel();
+});
 init();

@@ -27,10 +27,24 @@ from app.models import (
     Suggestion,
 )
 from app.rules import RuleEngine
+from app.text import normalize
 
 log = logging.getLogger(__name__)
 
 ONLY_OPTION_CONFIDENCE = 0.9
+GUESS_CONFIDENCE = 0.3
+
+_STOP = {"za", "i", "u", "na", "od", "po", "sa", "do", "troskovi", "trosak", "usluge", "usluga"}
+
+
+def _stems(text: str) -> set[str]:
+    return {w[:5] for w in normalize(text).split() if len(w) > 2 and w not in _STOP and not w.isdigit()}
+
+
+def best_by_overlap(text: str, options: list[AnalyticAccount]) -> AnalyticAccount:
+    """The option whose name shares the most word stems with the item text (first option on a tie)."""
+    words = _stems(text)
+    return max(options, key=lambda o: len(words & _stems(o.naziv)))
 
 
 @dataclass
@@ -115,8 +129,10 @@ class Classifier:
         label = f"Prošli put ste izabrali {konto}" + (f" · {analytic}" if analytic else "")
         if analytic and any(o.konto == analytic for o in options):
             suggestion = self._analytic(options, analytic, AnalyticSource.HISTORY, 0.95, label + ".")
+        elif options:
+            # Her analytic is not in the plan (any more): preselect the closest one, flagged.
+            suggestion = self._guess(ctx, options, label + ", ali taj analitički konto nije u planu.")
         else:
-            # Her analytic is not in the plan (any more): offer the list, preselect nothing.
             suggestion = self._analytic(options, None, AnalyticSource.NONE, 0.0, label + ".")
         return choice, suggestion
 
@@ -217,19 +233,31 @@ class Classifier:
         explanation: str,
         *,
         needs_review: bool | None = None,
+        poor_fit: bool = False,
+        better_konto: str | None = None,
     ) -> AnalyticSuggestion:
         confidence = round(min(max(confidence, 0.0), 1.0), 3)
         chosen = next((o for o in options if o.konto == konto), None)
+        if needs_review is None:
+            needs_review = chosen is None or confidence < self.review_threshold or poor_fit
         return AnalyticSuggestion(
             konto=chosen.konto if chosen else None,
             naziv=chosen.naziv if chosen else None,
             source=source,
             confidence=confidence,
             explanation=explanation,
-            needs_review=(chosen is None or confidence < self.review_threshold) if needs_review is None
-            else needs_review,
+            needs_review=needs_review,
             options=[AnalyticOption(konto=o.konto, naziv=o.naziv, probni=o.probni) for o in options],
+            poor_fit=poor_fit,
+            better_konto=better_konto,
+            better_konto_name=self.chart.name(better_konto) if better_konto else None,
         )
+
+    def _guess(self, ctx: ItemContext, options: list[AnalyticAccount], reason: str) -> AnalyticSuggestion:
+        """No usable LLM answer: preselect the option whose name shares the most words with the item."""
+        best = best_by_overlap(ctx.text, options)
+        return self._analytic(options, best.konto, AnalyticSource.GUESS, GUESS_CONFIDENCE,
+                              f"{reason} Izabran je najbliži konto po opisu — proverite.", needs_review=True)
 
     def suggest_analytic(self, ctx: ItemContext, konto: str | None) -> AnalyticSuggestion | None:
         """Choose the analytic account below `konto`, only among the client's plan. None if no plan."""
@@ -254,10 +282,10 @@ class Classifier:
             return self._analytic(options, only.konto, AnalyticSource.ONLY_OPTION, ONLY_OPTION_CONFIDENCE,
                                   f"Plan klijenta ima samo jedan analitički konto ispod {konto}: {only.konto}.")
 
-        # 3. LLM chooses from the offered list, with masked data.
+        # 3. LLM chooses from the offered list, with masked data. Something is ALWAYS preselected:
+        #    when the model is unsure or unavailable, the item is flagged instead of left empty.
         if self.llm is None:
-            return self._analytic(options, None, AnalyticSource.NONE, 0.0,
-                                  "Nema potvrde u istoriji, a LLM nije konfigurisan — izbor je na knjigovođi.")
+            return self._guess(ctx, options, "Nema potvrde u istoriji.")
         masker = self._masker(ctx)
         request = AnalyticRequest(
             item_text=masker.mask(ctx.text),
@@ -265,26 +293,27 @@ class Classifier:
             konto=konto,
             konto_naziv=self.chart.name(konto) or "",
             options=[AnalyticOption(konto=o.konto, naziv=o.naziv) for o in options],
+            chart=[AnalyticOption(konto=a.konto, naziv=a.naziv) for a in self.chart.accounts],
         )
         try:
             answer = self.llm.choose_analytic(request)
         except LLMError as exc:
             log.warning("LLM analytic choice failed for item %r: %s", item.name, exc)
-            return self._analytic(options, None, AnalyticSource.LLM, 0.0,
-                                  f"LLM nije izabrao analitiku ({exc}). Izbor je na knjigovođi.")
+            return self._guess(ctx, options, "Model nije odgovorio.")
 
         # 4. Validation: only an offered analytic account is accepted.
         chosen = answer.konto.strip()
         if chosen not in codes:
             log.warning("LLM returned analytic %r outside the offered list; rejected", chosen)
-            return self._analytic(options, None, AnalyticSource.LLM, 0.0,
-                                  f"LLM je predložio analitički konto '{chosen}' koji nije u planu klijenta ispod "
-                                  f"{konto} — predlog je odbačen. Izbor je na knjigovođi.")
-        explanation = masker.unmask(answer.obrazlozenje.strip()) or "LLM izbor bez obrazloženja."
+            return self._guess(ctx, options, f"Predlog modela '{chosen}' nije u planu ispod {konto} i odbačen je.")
+        explanation = masker.unmask(answer.obrazlozenje.strip()) or "Predlog bez obrazloženja."
         confidence = min(max(answer.sigurnost, 0.0), 1.0)
-        if confidence < self.review_threshold:
-            # Not sure enough: do not preselect anything, leave the choice to the accountant.
-            return self._analytic(options, None, AnalyticSource.LLM, confidence,
-                                  f"LLM nije dovoljno siguran (najbliži: {chosen}, sigurnost {confidence:.2f}): "
-                                  f"{explanation} Izbor je na knjigovođi.")
+        better = (answer.bolji_konto or "").strip()
+        better = better if better in self.chart and better != konto else None
+        if not answer.dobro_odgovara:
+            # Keep the closest option preselected, but say plainly that none fits well.
+            return self._analytic(options, chosen, AnalyticSource.LLM, confidence,
+                                  f"Nijedna analitika ne odgovara dobro. {explanation}",
+                                  poor_fit=True, better_konto=better)
+        # Low confidence: still preselected; needs_review flags it (yellow dot, not in "Potvrdi sve usklađene").
         return self._analytic(options, chosen, AnalyticSource.LLM, confidence, explanation)

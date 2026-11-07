@@ -42,7 +42,7 @@ def response_schema(allowed_codes: list[str]) -> dict[str, Any]:
     }
 
 
-def analytic_schema(allowed_codes: list[str]) -> dict[str, Any]:
+def analytic_schema(allowed_codes: list[str], chart_codes: list[str] | None = None) -> dict[str, Any]:
     """JSON schema for the analytic choice; the enum contains only the offered analytic accounts."""
     return {
         "type": "object",
@@ -50,9 +50,12 @@ def analytic_schema(allowed_codes: list[str]) -> dict[str, Any]:
             "konto": {"type": "string", "enum": allowed_codes, "description": "Analitički konto iz ponuđenog spiska"},
             "sigurnost": {"type": "number", "minimum": 0, "maximum": 1, "description": "Sigurnost 0-1"},
             "obrazlozenje": {"type": "string", "description": "Kratko obrazloženje na srpskom"},
+            "dobro_odgovara": {"type": "boolean", "description": "Da li izabrani konto dobro odgovara stavci"},
+            "bolji_konto": {"type": "string", "enum": [""] + list(chart_codes or []),
+                            "description": "Trocifreni konto koji bi bolje odgovarao, ili prazno"},
         },
-        "required": ["konto", "sigurnost", "obrazlozenje"],
-        "propertyOrdering": ["konto", "sigurnost", "obrazlozenje"],
+        "required": ["konto", "sigurnost", "obrazlozenje", "dobro_odgovara", "bolji_konto"],
+        "propertyOrdering": ["konto", "sigurnost", "obrazlozenje", "dobro_odgovara", "bolji_konto"],
     }
 
 
@@ -127,7 +130,7 @@ class GeminiProvider(LLMProvider):
         return self._generate(
             ANALYTIC_SYSTEM_PROMPT,
             build_analytic_prompt(request),
-            analytic_schema([o.konto for o in request.options]),
+            analytic_schema([o.konto for o in request.options], [o.konto for o in request.chart]),
             AnalyticChoice,
         )
 

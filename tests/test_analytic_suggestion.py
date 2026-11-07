@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from app.analytic import AnalyticAccount, AnalyticPlan
 from app.classifier import Classifier, ItemContext
 from app.history import HistoryStore
-from app.llm.base import AnalyticOption, AnalyticRequest, LLMError
+from app.llm.base import AnalyticChoice, AnalyticOption, AnalyticRequest, LLMError
 from app.llm.gemini import GeminiProvider
 from app.main import create_app
 from app.models import AnalyticSource, GivenCheck, InvoiceItem, Source
@@ -52,30 +52,82 @@ def test_llm_chooses_only_among_options_below_the_synthetic_account(chart, histo
     assert request.konto == "533"
 
 
-def test_llm_analytic_outside_options_is_rejected(chart, history, rules):
+def test_llm_analytic_outside_options_is_rejected_and_closest_is_preselected(chart, history, rules):
     llm = FakeLLM(analytic="5340")  # in the client's plan, but below 534, so not among the options for 533
-    s = make(chart, history, rules, llm).classify(ctx("Zakup poslovnog prostora"))
-    assert s.analytic.konto is None
-    assert s.analytic.needs_review is True
-    assert "odbačen" in s.analytic.explanation
-    llm2 = FakeLLM(analytic="9999")
-    s2 = make(chart, history, rules, llm2).classify(ctx("Zakup poslovnog prostora"))
-    assert s2.analytic.konto is None and "9999" in s2.analytic.explanation
+    s = make(chart, history, rules, llm).classify(ctx("Zakup magacinskog prostora"))
+    a = s.analytic
+    assert a.konto == "5331"  # the model's answer is rejected; the closest option by wording is preselected
+    assert a.source is AnalyticSource.GUESS and a.needs_review is True
+    assert "odbačen" in a.explanation and "5340" in a.explanation
+    s2 = make(chart, history, rules, FakeLLM(analytic="9999")).classify(ctx("Zakup poslovnog prostora"))
+    assert s2.analytic.konto == "5330" and "9999" in s2.analytic.explanation
 
 
-def test_low_confidence_leaves_the_choice_to_the_accountant(chart, history, rules):
+# --- The three cases of "always preselect the best analytic account" ---------------------------------
+
+
+def test_unsure_suggestion_is_preselected_but_flagged(chart, history, rules):
     llm = FakeLLM(analytic="5330", analytic_sigurnost=0.5)
     a = make(chart, history, rules, llm).classify(ctx("Zakup")).analytic
-    assert a.konto is None  # nothing preselected
-    assert a.needs_review is True
-    assert "5330" in a.explanation and "knjigovođi" in a.explanation
+    assert a.konto == "5330" and a.source is AnalyticSource.LLM  # preselected
+    assert a.needs_review is True  # yellow dot, not part of "Potvrdi sve usklađene"
+    assert a.poor_fit is False
     assert len(a.options) == 2
 
 
-def test_llm_error_leaves_choice_to_accountant(chart, history, rules):
+def test_poor_fit_keeps_the_closest_option_and_suggests_another_account(chart, history, rules):
+    class PoorFitLLM(FakeLLM):
+        def choose_analytic(self, request):
+            self.analytic_requests.append(request)
+            return AnalyticChoice(konto="5390", sigurnost=0.4, dobro_odgovara=False, bolji_konto="533",
+                                  obrazlozenje="Parking nije komunalna usluga ni zaštita na radu.")
+
+    plan = AnalyticPlan({CLIENT: [AnalyticAccount(konto="5390", naziv="Komunalne usluge"),
+                                  AnalyticAccount(konto="5391", naziv="Zaštita na radu")]})
+    llm = PoorFitLLM()
+    s = make(chart, history, rules, llm, plan=plan).classify(ctx("Zakup parking mesta", given_konto="539"))
+    a = s.analytic
+    assert a.konto == "5390"  # still the closest, preselected
+    assert a.poor_fit is True and a.needs_review is True
+    assert a.better_konto == "533" and a.better_konto_name == "Troškovi zakupnina"
+    assert a.explanation.startswith("Nijedna analitika ne odgovara dobro.")
+    # The model was shown the synthetic chart so it can name a better account.
+    assert "533" in {o.konto for o in llm.analytic_requests[0].chart}
+
+
+def test_better_account_outside_the_chart_or_equal_is_ignored(chart, history, rules):
+    class Odd(FakeLLM):
+        def __init__(self, better):
+            super().__init__()
+            self.better = better
+
+        def choose_analytic(self, request):
+            return AnalyticChoice(konto=request.options[0].konto, sigurnost=0.5, dobro_odgovara=False,
+                                  bolji_konto=self.better, obrazlozenje="x")
+
+    for better in ("999", "533", ""):
+        a = make(chart, history, rules, Odd(better)).classify(ctx("Zakup")).analytic
+        assert a.poor_fit is True and a.better_konto is None  # 999 unknown, 533 is the current account
+
+
+def test_choose_is_shown_only_when_no_analytic_exists(chart, history, rules):
+    # Below 513 the test plan has nothing: konto None and no options -> the UI shows "Izaberi".
+    a = make(chart, history, rules, FakeLLM()).classify(ctx("Evrodizel")).analytic
+    assert a.konto is None and a.options == [] and a.source is AnalyticSource.NONE
+
+
+def test_llm_error_preselects_the_closest_option(chart, history, rules):
     llm = FakeLLM(analytic_error=LLMError("timeout"))
-    a = make(chart, history, rules, llm).classify(ctx("Zakup prostora")).analytic
-    assert a.konto is None and a.needs_review and "timeout" in a.explanation
+    a = make(chart, history, rules, llm).classify(ctx("Zakup magacinskog prostora")).analytic
+    assert a.konto == "5331" and a.source is AnalyticSource.GUESS and a.needs_review
+
+
+def test_call_limit_reached_still_preselects(chart, history, rules):
+    from app.llm.base import CallBudgetExceeded
+
+    llm = FakeLLM(analytic_error=CallBudgetExceeded("dostignut limit od 8 API poziva, zahtev nije poslat"))
+    a = make(chart, history, rules, llm).classify(ctx("Zakup poslovnog prostora")).analytic
+    assert a.konto == "5330" and a.needs_review is True
 
 
 def test_single_option_needs_no_llm_call(chart, history, rules):
@@ -94,9 +146,9 @@ def test_no_analytic_below_synthetic_is_flagged(chart, history, rules, fake_llm)
     assert s.analytic.konto is None and s.analytic.options == [] and s.analytic.needs_review
 
 
-def test_without_llm_the_accountant_chooses(chart, history, rules):
-    a = make(chart, history, rules, None).classify(ctx("Zakup prostora")).analytic
-    assert a.konto is None and a.source is AnalyticSource.NONE and len(a.options) == 2
+def test_without_llm_the_closest_option_is_preselected(chart, history, rules):
+    a = make(chart, history, rules, None).classify(ctx("Zakup magacinskog prostora")).analytic
+    assert a.konto == "5331" and a.source is AnalyticSource.GUESS and a.needs_review and len(a.options) == 2
 
 
 def test_given_account_matching_the_system(chart, history, rules):
@@ -438,6 +490,9 @@ def test_gemini_analytic_schema_lists_only_offered_accounts():
     assert choice.konto == "5331"
     schema = calls[0]["config"].response_json_schema
     assert schema["properties"]["konto"]["enum"] == ["5330", "5331"]
+    assert schema["properties"]["dobro_odgovara"]["type"] == "boolean"
+    assert schema["properties"]["bolji_konto"]["enum"] == [""]  # no chart passed in this request
+    assert choice.dobro_odgovara is True and choice.bolji_konto == ""  # defaults when the model omits them
     assert "5331 Magacin" in calls[0]["contents"] and "533 Troškovi zakupnina" in calls[0]["contents"]
 
 

@@ -33,7 +33,8 @@ class AnalyticSource(StrEnum):
     HISTORY = "history"
     ONLY_OPTION = "only_option"  # the client's plan has exactly one analytic below the account
     LLM = "llm"
-    NONE = "none"  # left to the accountant
+    GUESS = "guess"  # closest option by word overlap when the LLM gave no usable answer (always flagged)
+    NONE = "none"  # nothing to choose: no analytic account below the synthetic one
 
 
 class Party(BaseModel):
@@ -89,6 +90,9 @@ class AnalyticSuggestion(BaseModel):
     explanation: str
     needs_review: bool
     options: list[AnalyticOption] = Field(description="All analytic accounts of the client below the 3-digit account")
+    poor_fit: bool = Field(default=False, description="No offered analytic account fits the item well")
+    better_konto: str | None = Field(default=None, description="A 3-digit account that would fit better, if clear")
+    better_konto_name: str | None = None
 
 
 class PreviousChoice(BaseModel):

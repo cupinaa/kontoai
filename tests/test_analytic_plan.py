@@ -19,6 +19,13 @@ def test_trial_plan_contains_every_analytic_account_the_accountant_wrote():
     assert plan.status == "probni"
 
 
+def test_trial_plan_has_short_names_and_the_api_returns_them(client):
+    plan = AnalyticPlan.load(DATA_DIR / "analiticki_plan.json")
+    assert all(a.kratko for a in plan.accounts("K001"))
+    assert plan.get("K001", "5331").kratko == "Zakup magacina"
+    assert AnalyticAccount(konto="5330", naziv="x").kratko is None  # Iris imports may not have one
+
+
 def test_every_trial_analytic_belongs_to_an_account_in_the_chart(chart):
     plan = AnalyticPlan.load(DATA_DIR / "analiticki_plan.json")
     assert all(a.sintetika in chart for a in plan.accounts("K001"))
