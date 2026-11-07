@@ -28,33 +28,33 @@ Iris stays authoritative: the analytic account is chosen below the Iris account.
 
 ## Demo
 
-These are real runs with Gemini (`gemini-3.6-flash`) through the web page, on 2026-11-07. The invoice was [`06_iris_provera_dijetetika.xml`](data/samples/06_iris_provera_dijetetika.xml), the client was `K001` (*proizvodnja dijetetskih proizvoda*), and the analytic plan was the trial plan.
+These are real runs with Gemini (`gemini-3.6-flash`) through the web page, on 2026-11-07. The invoice was the manual-test invoice [`07_test_dijetetika.xml`](data/samples/07_test_dijetetika.xml), and the client was `K001` (*proizvodnja dijetetskih proizvoda*), with the trial analytic plan. The invoice has seven lines modelled on the accountant's own items. One is a deliberate mistake: the bank fee carries Iris account 559 instead of 553. A step-by-step manual test is in [`docs/RUCNI_TEST.md`](docs/RUCNI_TEST.md).
 
-**Start:** choose the client, then drop the SEF XML.
+**Start:** one screen. The kingfisher sits above the drop zone, and there are no pages or menus. The client picker appears only when there is more than one client.
 
 ![Start screen](docs/screenshots/00_pocetna.png)
 
-**1. After the upload**, with the detail panel open on the row that does not match Iris:
+**1. After the upload**, with the detail panel open on the bank fee:
 
 ![First upload](docs/screenshots/01_prvo_ubacivanje.png)
 
-- **Konto column:** a green check means the system's own 3-digit account matches Iris, and a yellow dot means it needs a look. No other labels are shown in the table.
-- **Rows 1–3** match Iris.
-  - Rows 1 and 2: the LLM chose the analytic account from the offered list, 5330 (office) and 5331 (warehouse).
-  - Row 3: the plan has only one analytic account below 513, so no LLM call was needed.
-- **Row 4:** no rule applies, so the LLM proposed 532 against Iris' 539.
-- **Row 5** (panel): the rent rule says 533, Iris says 539.
-- **The detail panel** opens when you click a row. It holds the Iris-vs-system comparison, the confidence, the reasoning, and the account and analytic pickers. *Potvrdi sve usklađene (3)* confirms the three green rows in one click.
+- **Konto column:** a green check means the system's own 3-digit account matches Iris, and a yellow dot means it needs a look.
+- **Green rows 1–5:** history and rules (or the LLM) agree with Iris.
+  - The analytic account is preselected: by the LLM from the offered list, or directly when the plan has only one option.
+  - *Potvrdi sve usklađene (5)* confirms them in one click.
+- **Bank fee** (panel): Iris says 559, and the bank-fee rule says 553. The row needs a decision. The accountant picks 553 and 5530 in the panel and confirms.
+- **Protective masks:** Gemini did not agree with Iris' 539, so this row is yellow too. That is a real disagreement surfaced for review, not a bug.
+- **When every line is confirmed,** a small kingfisher head and *"Sve stavke su potvrđene."* replace the button.
 
-**2. After confirming 5331 in row 2 and uploading the same invoice again** (panel on row 2):
+**2. Uploading the same invoice again** (panel on the bank fee):
 
 ![Second upload](docs/screenshots/02_drugo_ubacivanje.png)
 
-- **Row 2** now comes from item history (95%): the same supplier and the same description were confirmed before.
-- **The other lines are untouched by that single confirmation.** Row 1 keeps 5330, and row 3 stays 513 → 5133.
-- **The second upload made no LLM calls.** Row 2 came from history, and the other lines' identical masked requests were answered from the server's in-memory cache.
+- **The accountant's earlier decision is preselected:** 553 · 5530, with *"Prošli put ste izabrali 553 · 5530"* in the panel. It is offered only for the **same item of the same supplier**, and only while Iris still gives the same account (559) it gave then. The row keeps its yellow dot, because it still does not match Iris.
+- **Supplier-level history** may still only suggest analytic accounts below the Iris account.
+- **The second upload made no LLM calls.** Confirmed lines came from history, and the rest from the server's in-memory cache.
 
-**Logo** ([`/logo-preview`](app/static/logo-preview.html)): four squares, one per digit of the account. The first three, grey, come from the accounting software. The fourth, blue, is the analytic digit that KontoAI suggests.
+**Logo** ([`/logo-preview`](app/static/logo-preview.html)): a kingfisher with a notebook. The full figure is on the start screen. The head appears next to the wordmark *konto*ai in the top bar and as the favicon. The assets are built by [`scripts/brand_assets.py`](scripts/brand_assets.py) from [`docs/brand/mascot_source.png`](docs/brand/mascot_source.png): it crops both figures, makes the background transparent and builds 32/16 px favicons. They are PNGs, because the SVG tracer (vtracer 0.6.15) crashes on Python 3.14 / Windows. On dark backgrounds the navy outline disappears, so there the mascot sits on a light tile.
 
 #### The bug this demo found, and the fix
 
@@ -80,7 +80,8 @@ A test replays the demo exactly: `test_demo_replay_sample_06_learning_without_sp
 | First version, before the fix: the in-app browser plus two headless uploads | 12 | ≈ $0.033 |
 | Re-run after the fix, clean database, server cap 8 | 5 (second upload 0, from cache) | ≈ $0.015 |
 | Screenshots of the redesigned page, clean database, server cap 6 | 5 (everything after the first upload came from history and cache) | ≈ $0.015 |
-| **Total** | **22** | **≈ $0.06** |
+| Screenshots with invoice 07 and the mascot, temporary database, server cap 7 | 7 (second upload 0) | ≈ $0.020 |
+| **Total** | **29** | **≈ $0.08** |
 
 ## How it works
 

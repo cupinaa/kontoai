@@ -352,7 +352,7 @@ function renderPanel() {
     <div>
       <div class="field-label">Analitika</div>
       ${options.length ? analyticSelect(row, "panel-analytic") : '<span class="dash">Nema analitike ispod ovog konta</span>'}
-      ${a && a.explanation && options.length && a.source !== "none" ? `<p class="reason reason-sub">${esc(a.explanation)}</p>` : ""}
+      ${a && a.explanation && options.length && a.source !== "none" && !s.previous_choice ? `<p class="reason reason-sub">${esc(a.explanation)}</p>` : ""}
     </div>` : ""}
     <button class="btn-primary" id="panel-confirm" type="button"${row.confirmed ? " disabled" : ""}>${row.confirmed ? "Potvrđeno" : "Potvrdi"}</button>`;
 
