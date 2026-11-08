@@ -218,11 +218,11 @@ function kontoCell(row) {
   const konto = row.choice.konto;
   const status = isAligned(row) ? STATUS_OK : STATUS_WARN;
   if (!konto) {
-    return `<button type="button" class="konto-cell" data-act="panel"><span class="konto-num"><span class="k3">—</span></span>${status}
+    return `<button type="button" class="konto-cell" data-act="panel"><span class="konto-line"><span class="konto-num"><span class="k3">—</span></span>${status}</span>
       <span class="konto-sub">Izaberi</span></button>`;
   }
   if (!state.plan.length) {
-    return `<span class="konto-cell static"><span class="konto-num"><span class="k3">${esc(konto)}</span></span>${status}</span>`;
+    return `<span class="konto-cell static"><span class="konto-line"><span class="konto-num"><span class="k3">${esc(konto)}</span></span>${status}</span></span>`;
   }
   const options = analyticOptions(konto);
   const chosen = options.find((o) => o.konto === row.choice.analytic);
@@ -231,12 +231,12 @@ function kontoCell(row) {
     const act = options.length ? "picker" : "panel";
     const hint = options.length ? "Izaberite analitiku" : `Ispod konta ${esc(konto)} nema analitike`;
     return `<button type="button" class="konto-cell" data-act="${act}" title="${hint}">
-      <span class="konto-num"><span class="k3">${esc(konto)}</span><span class="k4 empty">_</span></span>${status}
+      <span class="konto-line"><span class="konto-num"><span class="k3">${esc(konto)}</span><span class="k4 empty">_</span></span>${status}</span>
       <span class="konto-sub">Izaberi</span></button>`;
   }
   const rest = chosen.konto.slice(konto.length);
   return `<button type="button" class="konto-cell" data-act="picker" aria-haspopup="listbox" title="${esc(chosen.konto)} ${esc(chosen.naziv)}">
-    <span class="konto-num"><span class="k3">${esc(konto)}</span><span class="k4">${esc(rest)}</span></span>${status}
+    <span class="konto-line"><span class="konto-num"><span class="k3">${esc(konto)}</span><span class="k4">${esc(rest)}</span></span>${status}</span>
     <span class="konto-sub">${esc(shortName(chosen))}</span></button>`;
 }
 

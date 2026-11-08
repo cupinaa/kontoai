@@ -182,8 +182,7 @@ button, select, input { font: inherit; color: inherit; }
 /* Konto column: the full account, the analytic digit in blue, the short analytic name below. */
 .items .col-konto { width: 34%; }
 .konto-cell {
-  display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center;
-  column-gap: 10px; row-gap: 2px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
   background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm);
   padding: 6px 10px; margin: -6px -10px; text-align: left; cursor: pointer; color: inherit;
   transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease);
@@ -196,7 +195,8 @@ button, select, input { font: inherit; color: inherit; }
 .k3 { color: var(--text); }
 .k4 { color: var(--accent); font-weight: 750; margin-left: 2px; }
 .k4.empty { color: var(--accent); font-weight: 600; }
-.konto-sub { grid-column: 1 / -1; font-size: 13px; color: var(--text-2); line-height: 1.35; white-space: normal; }
+.konto-line { display: inline-flex; align-items: center; gap: 10px; }
+.konto-sub { font-size: 13px; color: var(--text-2); line-height: 1.35; white-space: normal; }
 
 /* Small analytic picker under the Konto cell */
 .picker {
