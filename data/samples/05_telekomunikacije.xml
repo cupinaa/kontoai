@@ -12,7 +12,7 @@
   <cac:InvoicePeriod><cbc:DescriptionCode>35</cbc:DescriptionCode></cac:InvoicePeriod>
   <cac:AccountingSupplierParty>
     <cac:Party>
-      <cbc:EndpointID schemeID="9948">205000055</cbc:EndpointID>
+      <cbc:EndpointID schemeID="9948">205000056</cbc:EndpointID>
       <cac:PartyName><cbc:Name>TeleNet Srbija DOO</cbc:Name></cac:PartyName>
       <cac:PostalAddress>
         <cbc:StreetName>Omladinskih brigada 90</cbc:StreetName>
@@ -20,7 +20,7 @@
         <cac:Country><cbc:IdentificationCode>RS</cbc:IdentificationCode></cac:Country>
       </cac:PostalAddress>
       <cac:PartyTaxScheme>
-        <cbc:CompanyID>RS205000055</cbc:CompanyID>
+        <cbc:CompanyID>RS205000056</cbc:CompanyID>
         <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
       </cac:PartyTaxScheme>
       <cac:PartyLegalEntity>

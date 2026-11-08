@@ -32,7 +32,7 @@
   </cac:AccountingSupplierParty>
   <cac:AccountingCustomerParty>
     <cac:Party>
-      <cbc:EndpointID schemeID="9948">110000010</cbc:EndpointID>
+      <cbc:EndpointID schemeID="9948">110000011</cbc:EndpointID>
       <cac:PartyName><cbc:Name>Dijeta Prima DOO</cbc:Name></cac:PartyName>
       <cac:PostalAddress>
         <cbc:StreetName>Industrijska 7</cbc:StreetName>
@@ -40,7 +40,7 @@
         <cac:Country><cbc:IdentificationCode>RS</cbc:IdentificationCode></cac:Country>
       </cac:PostalAddress>
       <cac:PartyTaxScheme>
-        <cbc:CompanyID>RS110000010</cbc:CompanyID>
+        <cbc:CompanyID>RS110000011</cbc:CompanyID>
         <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
       </cac:PartyTaxScheme>
       <cac:PartyLegalEntity>

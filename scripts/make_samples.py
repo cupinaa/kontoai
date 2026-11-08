@@ -37,7 +37,7 @@ class Line:
 
 BRZI_KURIR = Company("Brzi Kurir DOO", "101000001", "21000001", "Bulevar oslobođenja 12", "Novi Sad", "Ana Ilić")
 KOD_STUDIO = Company("Kod Studio DOO", "102000002", "21000002", "Nemanjina 4", "Beograd", "Petar Nikolić")
-MARKET = Company("Market Kod Ćoška DOO", "103000003", "21000003", "Kralja Petra 21", "Kragujevac", "Vesna Đorđević")
+MARKET = Company("Market Kod Ćoška DOO", "103000004", "21000003", "Kralja Petra 21", "Kragujevac", "Vesna Đorđević")
 
 INVOICES = [
     (
@@ -111,7 +111,7 @@ INVOICES = [
         "05_telekomunikacije.xml",
         "TN-2026-10-778812",
         "2026-10-05",
-        Company("TeleNet Srbija DOO", "205000055", "22000055", "Omladinskih brigada 90", "Beograd",
+        Company("TeleNet Srbija DOO", "205000056", "22000055", "Omladinskih brigada 90", "Beograd",
                 None, "e-fakture@telenet.example"),
         BRZI_KURIR,
         "265-0000077881205-55",
@@ -130,7 +130,7 @@ INVOICES = [
         "2026-11-02",
         Company("Poslovni Centar Vračar DOO", "203000033", "22000033", "Krunska 50", "Beograd",
                 "Milan Marković", "racunovodstvo@pcvracar.example"),
-        Company("Dijeta Prima DOO", "110000010", "21000010", "Industrijska 7", "Šabac", "Ivana Kostić"),
+        Company("Dijeta Prima DOO", "110000011", "21000010", "Industrijska 7", "Šabac", "Ivana Kostić"),
         "170-0000000011003-33",
         [
             Line("Zakup poslovnog prostora za novembar 2026", 1, "MON", 185000.00, accounting_cost="533"),
@@ -148,7 +148,7 @@ INVOICES = [
         "2026-11-05",
         Company("Poslovni Park Morava DOO", "204000077", "22000077", "Bulevar Morave 12", "Kruševac",
                 "Jelena Ristić", "fakture@ppmorava.example"),
-        Company("Dijeta Prima DOO", "110000010", "21000010", "Industrijska 7", "Šabac", "Ivana Kostić"),
+        Company("Dijeta Prima DOO", "110000011", "21000010", "Industrijska 7", "Šabac", "Ivana Kostić"),
         "160-0000001107007-77",
         [
             Line("Električna energija za oktobar 2026", 1, "C62", 18640.00, accounting_cost="513"),
