@@ -108,6 +108,8 @@ Every confirmation is stored in the client's history (SQLite). The next invoice 
   - yeast booked directly to expense instead of stock;
   - toner;
   - diesel bought by a petrol station.
+
+  Some disagreements may reflect the accountant answering from her own client's accounting policy rather than the business activity listed next to each item; this is not yet confirmed.
 - **Overconfidence:** of her 8 `?` items, the system had flagged only 1. It is more confident than it should be on vague lines.
 
 This is the main lesson. A generic model encodes *one* accounting policy, while each client has its own. That is why KontoAI learns per client and treats its suggestions as proposals.
