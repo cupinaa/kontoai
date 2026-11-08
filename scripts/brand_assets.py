@@ -2,10 +2,11 @@
 
     python scripts/brand_assets.py
 
-Outputs (docs/brand/ and app/static/brand/):
+Outputs (app/static/brand/):
   mascot_full.png, mascot_head.png  — cropped, white background made transparent
   favicon-32.png, favicon-16.png    — the head, square
-  *_vtracer.svg                     — only with --svg (vtracer crashes on Python 3.14 / Windows)
+  apple-touch-icon.png
+  docs/brand/*_vtracer.svg          — only with --svg (vtracer crashes on Python 3.14 / Windows)
 It also prints the dominant blue of the mascot, used as the app's accent colour.
 
 Background removal uses a flood fill from the image border over near-white pixels, so white areas
@@ -148,23 +149,20 @@ def main() -> int:
         y0, y1 = bbox_rows(src, x0, x1)
         crop = src.crop((max(0, x0 - PAD), max(0, y0 - PAD), min(src.width, x1 + PAD), min(src.height, y1 + PAD)))
         clear = make_transparent(crop)
-        for folder in (OUT_DOCS, OUT_STATIC):
-            clear.save(folder / f"{name}.png")
+        clear.save(OUT_STATIC / f"{name}.png")
         results[name] = clear
         print(f"{name}: {clear.size[0]}x{clear.size[1]} px")
 
     head = square(results["mascot_head"])
     for size in (32, 16):
-        icon = head.resize((size, size), Image.LANCZOS)
-        icon.save(OUT_STATIC / f"favicon-{size}.png")
-        icon.save(OUT_DOCS / f"favicon-{size}.png")
+        head.resize((size, size), Image.LANCZOS).save(OUT_STATIC / f"favicon-{size}.png")
     head.resize((180, 180), Image.LANCZOS).save(OUT_STATIC / "apple-touch-icon.png")
 
     print("dominant blue:", dominant_blue(results["mascot_full"]))
     if "--svg" in sys.argv:
         # vtracer 0.6.15 crashes (access violation) on Python 3.14 / Windows, so this is opt-in.
         for name in ("mascot_full", "mascot_head"):
-            stats = vectorize(OUT_DOCS / f"{name}.png", OUT_DOCS / f"{name}_vtracer.svg")
+            stats = vectorize(OUT_STATIC / f"{name}.png", OUT_DOCS / f"{name}_vtracer.svg")
             print(f"{name}_vtracer.svg: {stats['paths']} paths, {stats['bytes'] / 1024:.0f} KB")
     return 0
 
