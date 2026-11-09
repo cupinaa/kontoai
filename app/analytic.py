@@ -94,7 +94,7 @@ class AnalyticPlan:
 _LONG_NUMBER = re.compile(r"\d[\d\-/]{4,}\d")
 _AREA = re.compile(r"\d+(?:[.,]\d+)?(?:/\d+)?\s*(?:m2|m²|ari|ara|ar|ha)\b", re.IGNORECASE)
 _WORD = re.compile(r"[A-Za-zČĆŠŽĐčćšžđ]+")
-_JOIN = re.compile(r"^(?: |\.|\. )$")  # what may separate two words of one place name ("Novi Sad", "St.Pazova")
+_JOIN = re.compile(r"^(?: |\.|\. )$")  # what may separate two words of one place name ("Zlatni Breg", "Sv.Lipovac")
 # Capitalised words in account names that are accounting vocabulary, not places.
 _GENERIC = {"ispr", "ispra", "isprav", "poresk", "uprav", "resen", "suda", "sud", "stari", "novi", "nova", "staro"}
 
