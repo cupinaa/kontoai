@@ -595,3 +595,83 @@ def test_api_xml_accounting_cost_is_the_given_konto(settings, sample_bytes):
                       ("539", None, "unverified"), ("539", "533", "mismatch")]
     parking = body["items"][4]["suggestion"]
     assert all(o["konto"].startswith("539") for o in parking["analytic"]["options"])
+
+
+# ---------------------------------------------------------------- two close candidates are flagged
+
+def _close_classifier(chart, history, rules, llm, accounts):
+    from app.analytic import AnalyticPlan
+    from app.classifier import Classifier
+
+    return Classifier(chart=chart, history=history, rules=rules, llm=llm, analytic_plan=AnalyticPlan({"K7": accounts}))
+
+
+def _classify(classifier, name, konto):
+    from app.classifier import ItemContext
+    from app.models import InvoiceItem
+
+    return classifier.classify(ItemContext(client_id="K7", client_activity="proizvodnja",
+                                           item=InvoiceItem(name=name, given_konto=konto)))
+
+
+def test_less_used_choice_with_a_similar_more_used_account_is_flagged(chart, history, rules):
+    from app.analytic import AnalyticAccount
+    from tests.conftest import FakeLLM
+
+    accounts = [AnalyticAccount(konto="5315", naziv="Kurirske usluge - redovna dostava", tg=50, pg=44),
+                AnalyticAccount(konto="5316", naziv="Prevoz robe drumom", tg=40, pg=35),
+                AnalyticAccount(konto="5317", naziv="Prevoz robe brodom", tg=0, pg=0),
+                AnalyticAccount(konto="53182", naziv="Iznajmljivanje kombija", tg=1, pg=0),
+                AnalyticAccount(konto="53181", naziv="Kurirske usluge - hitna dostava", tg=6, pg=7)]
+    llm = FakeLLM(konto="531", analytic="53181", analytic_sigurnost=0.95)
+    result = _classify(_close_classifier(chart, history, rules, llm, accounts), "Slanje paketa kupcima", "531")
+    assert result.analytic.konto == "53181"  # the model's choice stays preselected
+    assert result.analytic.needs_review is True  # ...but it is a yellow dot, not a certain answer
+    assert "5315" in result.analytic.explanation
+
+
+def test_two_options_matching_the_description_equally_are_flagged(chart, history, rules):
+    from app.analytic import AnalyticAccount
+    from tests.conftest import FakeLLM
+
+    accounts = [AnalyticAccount(konto="5330", naziv="Zakup magacina", tg=5, pg=5),
+                AnalyticAccount(konto="5331", naziv="Zakup kancelarije", tg=5, pg=5),
+                AnalyticAccount(konto="5338", naziv="Drugi troškovi zakupa", tg=0, pg=0)]
+    llm = FakeLLM(analytic="5331", analytic_sigurnost=0.95)
+    result = _classify(_close_classifier(chart, history, rules, llm, accounts), "Zakup kancelarije i magacina", "533")
+    assert result.analytic.konto == "5331" and result.analytic.needs_review is True
+
+
+def test_clear_choice_stays_confident(chart, history, rules):
+    from app.analytic import AnalyticAccount
+    from tests.conftest import FakeLLM
+
+    accounts = [AnalyticAccount(konto="51351", naziv="Gorivo za službena vozila", tg=30, pg=31),
+                AnalyticAccount(konto="51350", naziv="Električna energija - pogon", tg=12, pg=11),
+                AnalyticAccount(konto="51359", naziv="Ostala energija", tg=0, pg=0)]
+    llm = FakeLLM(analytic="51350", analytic_sigurnost=0.95)
+    result = _classify(_close_classifier(chart, history, rules, llm, accounts), "Električna energija za oktobar", "513")
+    assert result.analytic.konto == "51350" and result.analytic.needs_review is False
+
+
+def test_word_shared_by_most_of_the_group_does_not_make_names_similar(chart, history, rules):
+    from app.analytic import AnalyticAccount
+    from tests.conftest import FakeLLM
+
+    accounts = [AnalyticAccount(konto="51270", naziv="Ostali režijski materijal", tg=80, pg=79),
+                AnalyticAccount(konto="51271", naziv="Kancelarijski materijal", tg=20, pg=21),
+                AnalyticAccount(konto="51272", naziv="Materijal za higijenu", tg=20, pg=25)]
+    llm = FakeLLM(analytic="51271", analytic_sigurnost=0.95)
+    result = _classify(_close_classifier(chart, history, rules, llm, accounts), "Toner HP 85A", "512")
+    assert result.analytic.konto == "51271" and result.analytic.needs_review is False
+
+
+def test_never_used_account_sharing_a_word_is_not_a_close_rival(chart, history, rules):
+    from app.analytic import AnalyticAccount
+    from tests.conftest import FakeLLM
+
+    accounts = [AnalyticAccount(konto="5530", naziv="Platni promet u zemlji", tg=150, pg=141),
+                AnalyticAccount(konto="55301", naziv="Platni promet u inostranstvu", tg=0, pg=0)]
+    llm = FakeLLM(analytic="5530", analytic_sigurnost=0.95)
+    result = _classify(_close_classifier(chart, history, rules, llm, accounts), "Naknada za platni promet", "553")
+    assert result.analytic.konto == "5530" and result.analytic.needs_review is False

@@ -136,7 +136,7 @@ def test_import_script_refuses_to_write_inside_the_repo(tmp_path):
 
 LOCATION_PLAN = [
     AnalyticAccount(konto="5330", naziv="Troškovi zakupa poslovnog prostora", tg=5, pg=5),
-    AnalyticAccount(konto="5331", naziv="Zakup lokala Topolska", tg=4, pg=4),
+    AnalyticAccount(konto="5331", naziv="Zakup lokala Topolska", tg=8, pg=8),
     AnalyticAccount(konto="5332", naziv="Zakup magacina-Zlatni Breg-120 m2", tg=3, pg=3),
     AnalyticAccount(konto="5339", naziv="Drugi troškovi zakupa poslovnog prostora", tg=0, pg=0),
 ]

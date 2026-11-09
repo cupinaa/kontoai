@@ -51,6 +51,37 @@ def best_by_overlap(text: str, options: list[AnalyticAccount]) -> AnalyticAccoun
     return max(options, key=lambda o: (len(words & _stems(o.naziv)), o.usage or 0))
 
 
+_GENERIC_NAME = _STOP | {"drugi", "drugih", "ostali", "ostalih", "ostalog", "ostala", "trosk", "zemlj"}
+
+
+def _name_stems(name: str) -> set[str]:
+    return {s for s in _stems(name) if s not in {w[:5] for w in _GENERIC_NAME}}
+
+
+def close_alternative(text: str, chosen: AnalyticAccount, options: list[AnalyticAccount]) -> AnalyticAccount | None:
+    """Another option that makes the choice doubtful, or None.
+
+    Two cases: (1) another option fits the description as well as the chosen one (equal, non-zero word
+    overlap with the line) and is not much less used, or (2) the chosen account is used less than another
+    one with a similar name (a shared distinctive word, e.g. both "PTT" accounts). Words most options of
+    the group share ("materijal" under 512, "zakup" under 533) do not make two names similar.
+    """
+    common = {s for s in {s for o in options for s in _name_stems(o.naziv)}
+              if sum(s in _name_stems(o.naziv) for o in options) * 2 > len(options)}
+    words = _stems(text)
+    score = len(words & _stems(chosen.naziv))
+    chosen_name = _name_stems(chosen.naziv) - common
+    for other in options:
+        if other.konto == chosen.konto:
+            continue
+        comparable = chosen.usage is None or other.usage is None or other.usage * 2 >= chosen.usage
+        if score and comparable and len(words & _stems(other.naziv)) == score:
+            return other
+        if (other.usage or 0) > (chosen.usage or 0) and chosen_name & (_name_stems(other.naziv) - common):
+            return other
+    return None
+
+
 def _option(account: AnalyticAccount, naziv: str | None = None) -> AnalyticOption:
     return AnalyticOption(konto=account.konto, naziv=naziv if naziv is not None else account.naziv,
                           probni=account.probni, usage=account.usage, usage_label=account.usage_label())
@@ -373,5 +404,12 @@ class Classifier:
             return self._analytic(options, chosen, AnalyticSource.LLM, confidence,
                                   f"Nijedna analitika ne odgovara dobro. {explanation}",
                                   poor_fit=True, better_konto=better)
+        # Two close candidates: keep the model's choice preselected, but flag it instead of looking certain.
+        picked = next(o for o in options if o.konto == chosen)
+        rival = close_alternative(ctx.text, picked, options)
+        if rival is not None:
+            return self._analytic(options, chosen, AnalyticSource.LLM, confidence,
+                                  f"{explanation} Blizak je i konto {rival.konto} {rival.naziv} — proverite.",
+                                  needs_review=True)
         # Low confidence: still preselected; needs_review flags it (yellow dot, not in "Potvrdi sve usklađene").
         return self._analytic(options, chosen, AnalyticSource.LLM, confidence, explanation)
