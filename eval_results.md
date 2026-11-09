@@ -1,6 +1,6 @@
 # KontoAI — evaluation results
 
-- Date: 2026-11-09 14:04
+- Date: 2026-11-09 14:21
 - LLM: Gemini `gemini-3.6-flash`
 - Items: 50 (30 easy, 20 hard) from `data/eval/dataset.json`
 - Review threshold: confidence < 0.75
@@ -14,9 +14,9 @@
 
 | Group | Items | Correct | Accuracy | Flagged for review | Silent errors | Avg time / item |
 |---|---|---|---|---|---|---|
-| Easy (clear descriptions) | 30 | 29 | **96.7%** | 0 | 1 | 0.5 ms |
-| Hard (ambiguous, abbreviations, activity-dependent, no rule) | 20 | 19 | **95.0%** | 4 | 0 | cached |
-| **All** | 50 | 48 | **96.0%** | 4 | 1 | 0.5 ms |
+| Easy (clear descriptions) | 30 | 29 | **96.7%** | 0 | 1 | 0.6 ms |
+| Hard (ambiguous, abbreviations, activity-dependent, no rule) | 20 | 19 | **95.0%** | 4 | 0 | 0.4 ms |
+| **All** | 50 | 48 | **96.0%** | 4 | 1 | 0.6 ms |
 
 ### Hard items by category
 
@@ -25,15 +25,15 @@
 | ambiguous description | 5 | 4 | **80.0%** | 4 | 0 | cached |
 | invoice abbreviation | 4 | 4 | **100.0%** | 0 | 0 | cached |
 | depends on client activity | 6 | 6 | **100.0%** | 0 | 0 | cached |
-| not covered by any rule | 5 | 5 | **100.0%** | 0 | 0 | cached |
+| not covered by any rule | 5 | 5 | **100.0%** | 0 | 0 | 0.4 ms |
 
 ## By decision source
 
 | Group | Items | Correct | Accuracy | Flagged for review | Silent errors | Avg time / item |
 |---|---|---|---|---|---|---|
-| history | 6 | 6 | **100.0%** | 0 | 0 | 0.8 ms |
-| rules | 12 | 12 | **100.0%** | 0 | 0 | 0.4 ms |
-| LLM | 32 | 30 | **93.8%** | 4 | 1 | cached |
+| history | 6 | 6 | **100.0%** | 0 | 0 | 0.7 ms |
+| rules | 13 | 13 | **100.0%** | 0 | 0 | 0.5 ms |
+| LLM | 31 | 29 | **93.5%** | 4 | 1 | cached |
 
 Some LLM answers were served from the local cache; their time is excluded from the averages.
 
@@ -43,7 +43,7 @@ Some LLM answers were served from the local cache; their time is excluded from t
 |---|---|
 | API requests sent (incl. retries) | 0 of max 0 |
 | Successful responses | 0 |
-| Answers served from cache | 32 |
+| Answers served from cache | 31 |
 | Prompt tokens | 0 |
 | Output tokens | 0 |
 | Thinking tokens | 0 |
@@ -100,7 +100,7 @@ Some LLM answers were served from the local cache; their time is excluded from t
 | 45 | Evrodizel - za službeno vozilo | hard (depends on client activity) | 513 | 513 | LLM | 0.95 |  | ✅ |
 | 46 | Podizvođački radovi - postavljanje keramike | hard (not covered by any rule) | 530 | 530 | LLM | 0.95 |  | ✅ |
 | 47 | Prevod ugovora na engleski jezik | hard (not covered by any rule) | 550 | 550 | LLM | 0.92 |  | ✅ |
-| 48 | Štand na sajmu Tech Expo 2026 | hard (not covered by any rule) | 534 | 534 | LLM | 0.98 |  | ✅ |
+| 48 | Štand na sajmu Tech Expo 2026 | hard (not covered by any rule) | 534 | 534 | rules | 0.90 |  | ✅ |
 | 49 | Revizija protivpožarnih aparata | hard (not covered by any rule) | 532 | 532 | LLM | 0.85 |  | ✅ |
 | 50 | Obuka zaposlenih - kurs Kubernetes | hard (not covered by any rule) | 550 | 550 | LLM | 0.95 |  | ✅ |
 

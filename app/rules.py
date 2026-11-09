@@ -25,6 +25,9 @@ class Rule:
     # The same purchase means something else for some businesses: fuel bought by a
     # petrol station is goods for resale, not a fuel expense. Such clients go to the LLM.
     exclude_activity_keywords: list[str] = field(default_factory=list)
+    # A more specific rule wins over a general one when both match ("zakup sajamskog prostora" is a
+    # trade-fair cost, not rent). Rules of equal specificity that disagree leave the item to the LLM.
+    specificity: int = 1
     _kw: list[re.Pattern[str]] = field(init=False, repr=False)
     _ex: list[re.Pattern[str]] = field(init=False, repr=False)
     _ex_act: list[re.Pattern[str]] = field(init=False, repr=False)
@@ -79,6 +82,8 @@ class RuleEngine:
                 matches.append(RuleMatch(rule, keyword))
         if not matches:
             return None
+        top = max(m.rule.specificity for m in matches)
+        matches = [m for m in matches if m.rule.specificity == top]
         if len({m.rule.konto for m in matches}) > 1:
             return None  # ambiguous, e.g. "zakup + struja" on one line — let the LLM decide
         return matches[0]

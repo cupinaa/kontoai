@@ -1,5 +1,5 @@
 {
-  "_napomena": "Pravila po ključnim rečima za očigledne slučajeve. Ključne reči se porede sa normalizovanim tekstom (mala slova, bez dijakritika, ćirilica preslovljena u latinicu) kao početak reči, pa 'zakup' pogađa i 'zakupnina'. Ako se poklope pravila sa različitim kontima, odluka se prepušta LLM-u.",
+  "_napomena": "Pravila po ključnim rečima za očigledne slučajeve. Ključne reči se porede sa normalizovanim tekstom (mala slova, bez dijakritika, ćirilica preslovljena u latinicu) kao početak reči, pa 'zakup' pogađa i 'zakupnina'. Ako se poklopi više pravila, prednost ima konkretnije ('specificity' veći broj, npr. sajam ispred opšteg zakupa); ako se konkretnija pravila i dalje razlikuju u kontu, odluka se prepušta LLM-u.",
   "rules": [
     {
       "id": "gorivo",
@@ -27,6 +27,16 @@
       "exclude_keywords": ["lizing", "leasing"],
       "exclude_activity_keywords": [],
       "reason": "Zakup prostora ili opreme knjiži se kao trošak zakupnina."
+    },
+    {
+      "id": "sajam",
+      "konto": "534",
+      "confidence": 0.9,
+      "keywords": ["sajam", "sajamsk", "sajmu", "sajmov", "sajmis", "izlagacki prostor", "izlagackog prostora"],
+      "exclude_keywords": [],
+      "exclude_activity_keywords": ["sajm"],
+      "specificity": 2,
+      "reason": "Zakup prostora i druge usluge za učešće na sajmu knjiže se kao troškovi sajmova, ne kao zakupnina."
     },
     {
       "id": "telekomunikacije",
@@ -62,6 +72,7 @@
       "keywords": ["osiguranj", "polisa", "polise"],
       "exclude_keywords": [],
       "exclude_activity_keywords": [],
+      "specificity": 2,
       "reason": "Premije osiguranja knjiže se kao troškovi premija osiguranja."
     },
     {
@@ -80,6 +91,7 @@
       "keywords": ["reklam", "oglasavanj", "marketinska kampanja", "marketinske kampanje"],
       "exclude_keywords": [],
       "exclude_activity_keywords": [],
+      "specificity": 2,
       "reason": "Reklama i oglašavanje knjiže se kao troškovi reklame i propagande."
     }
   ]

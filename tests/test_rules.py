@@ -1,5 +1,7 @@
 import pytest
 
+from app.config import DATA_DIR
+from app.rules import RuleEngine
 from app.text import normalize
 
 
@@ -66,3 +68,28 @@ def test_normalize():
     assert normalize("  Električna ENERGIJA, 1kW!  ") == "elektricna energija 1kw"
     assert normalize("Ђурђевак") == "djurdjevak"
     assert normalize(None) == ""
+
+
+# ---------------------------------------------------------------- a specific rule wins over a general one
+
+@pytest.mark.parametrize("text, rule_id, konto", [
+    ("zakup sajamskog prostora", "sajam", "534"),
+    ("Zakup štanda na sajmu hrane", "sajam", "534"),
+    ("Zakup reklamnog bilborda za oktobar", "reklama", "535"),
+    ("Osiguranje zakupljenog magacina", "osiguranje", "552"),
+    ("Zakup poslovnog prostora", "zakup", "533"),
+])
+def test_specific_rule_wins_over_general_rent_rule(text, rule_id, konto):
+    match = RuleEngine.load(DATA_DIR / "rules.json").match(text)
+    assert match is not None and (match.rule.id, match.rule.konto) == (rule_id, konto)
+
+
+def test_equally_specific_rules_that_disagree_still_go_to_the_llm():
+    engine = RuleEngine.load(DATA_DIR / "rules.json")
+    assert engine.match("Zakup poslovnog prostora i struja") is None
+    assert engine.match("Polisa osiguranja i reklama") is None
+
+
+def test_trade_fair_organiser_is_not_caught_by_the_fair_rule():
+    match = RuleEngine.load(DATA_DIR / "rules.json").match("Zakup sajamskog prostora", "organizacija sajmova")
+    assert match is not None and match.rule.id == "zakup"  # for a fair organiser it is ordinary rent
