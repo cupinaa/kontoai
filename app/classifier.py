@@ -11,13 +11,14 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from app.analytic import AnalyticAccount, AnalyticPlan
+from app.analytic import AnalyticAccount, AnalyticPlan, mask_plan_name
 from app.chart import ChartOfAccounts
 from app.history import HistoryStore
-from app.llm.base import AnalyticRequest, LLMError, LLMProvider, LLMRequest
+from app.llm.base import AnalyticRequest, LLMError, LLMProvider, LLMRequest, QuestionRequest
 from app.masking import Masker
 from app.models import (
     AnalyticOption,
+    AskResponse,
     AnalyticSource,
     AnalyticSuggestion,
     GivenCheck,
@@ -42,9 +43,17 @@ def _stems(text: str) -> set[str]:
 
 
 def best_by_overlap(text: str, options: list[AnalyticAccount]) -> AnalyticAccount:
-    """The option whose name shares the most word stems with the item text (first option on a tie)."""
+    """The option whose name shares the most word stems with the item text.
+
+    On a tie the more used account wins, then the first one in the list.
+    """
     words = _stems(text)
-    return max(options, key=lambda o: len(words & _stems(o.naziv)))
+    return max(options, key=lambda o: (len(words & _stems(o.naziv)), o.usage or 0))
+
+
+def _option(account: AnalyticAccount, naziv: str | None = None) -> AnalyticOption:
+    return AnalyticOption(konto=account.konto, naziv=naziv if naziv is not None else account.naziv,
+                          probni=account.probni, usage=account.usage, usage_label=account.usage_label())
 
 
 @dataclass
@@ -190,6 +199,44 @@ class Classifier:
             masker.add_known("OSOBA", person)
         return masker
 
+    def answer_question(self, ctx: ItemContext, konto: str | None, analytic_konto: str | None,
+                        question: str) -> AskResponse:
+        """One LLM call answering the accountant's question about this line.
+
+        The model gets only masked text: the line, the question, the suggested accounts, the candidates
+        from the client's plan and the 3-digit chart. A recommended account is accepted only if it exists
+        in the client's plan. Raises LLMError (including CallBudgetExceeded) when no answer is possible.
+        """
+        if self.llm is None:
+            raise LLMError("LLM nije uključen (nema ključa ili je uključen bezbedni režim).")
+        masker = self._masker(ctx)
+        plan = self.analytic_plan
+        options = plan.options(ctx.client_id, konto) if konto else []
+        analytic = plan.get(ctx.client_id, analytic_konto) if analytic_konto else None
+        request = QuestionRequest(
+            question=masker.mask(question.strip()),
+            item_text=masker.mask(ctx.text),
+            client_activity=masker.mask(ctx.client_activity),
+            konto=konto,
+            konto_naziv=(self.chart.name(konto) or "") if konto else "",
+            analytic_konto=analytic.konto if analytic else None,
+            analytic_naziv=mask_plan_name(masker.mask(analytic.naziv)) if analytic else "",
+            options=[_option(o, mask_plan_name(masker.mask(o.naziv))) for o in options],
+            chart=[AnalyticOption(konto=a.konto, naziv=a.naziv) for a in self.chart.accounts],
+        )
+        answer = self.llm.answer_question(request)
+
+        text = masker.unmask(answer.odgovor.strip())[:1200] or "Model nije dao odgovor."
+        recommended = (answer.preporuceni_konto or "").strip()
+        if not answer.na_temu or not recommended:
+            return AskResponse(answer=text, on_topic=answer.na_temu)
+        account = plan.get(ctx.client_id, recommended)
+        if account is None:
+            log.warning("LLM recommended %r, which is not in the client's plan; rejected", recommended)
+            return AskResponse(answer=f"{text} (Model je pomenuo konto {recommended}, koji nije u planu klijenta — "
+                                      "ta preporuka je odbačena.)", rejected_konto=recommended)
+        return AskResponse(answer=text, recommended_konto=account.konto, recommended_naziv=account.naziv)
+
     def _ask_llm(self, ctx: ItemContext) -> Suggestion:
         item = ctx.item
         masker = self._masker(ctx)
@@ -247,7 +294,7 @@ class Classifier:
             confidence=confidence,
             explanation=explanation,
             needs_review=needs_review,
-            options=[AnalyticOption(konto=o.konto, naziv=o.naziv, probni=o.probni) for o in options],
+            options=[_option(o) for o in options],
             poor_fit=poor_fit,
             better_konto=better_konto,
             better_konto_name=self.chart.name(better_konto) if better_konto else None,
@@ -292,7 +339,9 @@ class Classifier:
             client_activity=masker.mask(ctx.client_activity),
             konto=konto,
             konto_naziv=self.chart.name(konto) or "",
-            options=[AnalyticOption(konto=o.konto, naziv=o.naziv) for o in options],
+            # Account names of a real plan can hold the client's own details (addresses, tax account
+            # numbers), so they are masked like the item text.
+            options=[_option(o, mask_plan_name(masker.mask(o.naziv))) for o in options],
             chart=[AnalyticOption(konto=a.konto, naziv=a.naziv) for a in self.chart.accounts],
         )
         try:

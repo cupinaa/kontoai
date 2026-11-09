@@ -23,10 +23,31 @@ class AnalyticAccount(BaseModel):
     kratko: str | None = None  # short display name for the table ("Zakup magacina"); falls back to naziv
     probni: bool = False
     izvor: str | None = None
+    tg: int | None = None  # number of postings this year (Broj stavki TG), when the plan export has it
+    pg: int | None = None  # number of postings last year (Broj stavki PG)
 
     @property
     def sintetika(self) -> str:
         return self.konto[:3]
+
+    @property
+    def usage(self) -> int | None:
+        """Postings this year + last year; None when the plan carries no counts (e.g. the trial plan)."""
+        if self.tg is None and self.pg is None:
+            return None
+        return (self.tg or 0) + (self.pg or 0)
+
+    def usage_label(self) -> str | None:
+        n = self.usage
+        if n is None:
+            return None
+        if n == 0:
+            return "nije korišćen"
+        if n < 10:
+            return f"retko ({n} knjiženja)"
+        if n < 100:
+            return f"često ({n} knjiženja)"
+        return f"vrlo često ({n} knjiženja)"
 
 
 class AnalyticPlan:
@@ -53,13 +74,28 @@ class AnalyticPlan:
         return list(self._clients.get(client_id, []))
 
     def options(self, client_id: str, sintetika: str | None) -> list[AnalyticAccount]:
-        """Analytic accounts of this client below the given 3-digit account."""
+        """Analytic accounts (4 or more digits) of this client below the given 3-digit account.
+
+        When the plan carries posting counts, the most used accounts come first. Accounts that were
+        never used are kept, just ranked last. Without counts the plan's own order is kept.
+        """
         if not sintetika:
             return []
-        return [a for a in self._clients.get(client_id, []) if a.konto.startswith(sintetika)]
+        found = [a for a in self._clients.get(client_id, []) if a.konto[:3] == sintetika[:3] and len(a.konto) > 3]
+        if any(a.usage is not None for a in found):
+            found.sort(key=lambda a: (-(a.usage or 0), a.konto))
+        return found
 
     def get(self, client_id: str, konto: str) -> AnalyticAccount | None:
         return next((a for a in self._clients.get(client_id, []) if a.konto == konto), None)
+
+
+_LONG_NUMBER = re.compile(r"\d[\d\-/]{4,}\d")
+
+
+def mask_plan_name(naziv: str) -> str:
+    """Hide long numbers in an account name (tax payment accounts, cadastral numbers) before it goes to an LLM."""
+    return _LONG_NUMBER.sub("[BROJ]", naziv)
 
 
 # ----------------------------------------------------------------------------- import

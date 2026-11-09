@@ -10,7 +10,15 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
-from app.llm.base import AnalyticChoice, AnalyticRequest, LLMProvider, LLMRequest, LLMSuggestion
+from app.llm.base import (
+    AnalyticChoice,
+    AnalyticRequest,
+    LLMProvider,
+    LLMRequest,
+    LLMSuggestion,
+    QuestionAnswer,
+    QuestionRequest,
+)
 
 
 class MemoryCachedProvider(LLMProvider):
@@ -46,3 +54,7 @@ class MemoryCachedProvider(LLMProvider):
 
     def choose_analytic(self, request: AnalyticRequest) -> AnalyticChoice:
         return self._get_or_call("a:" + request.model_dump_json(), lambda: self.inner.choose_analytic(request))
+
+    def answer_question(self, request: QuestionRequest) -> QuestionAnswer:
+        # Not cached: every question the accountant asks is one real call (and counts against the limit).
+        return self.inner.answer_question(request)

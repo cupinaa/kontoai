@@ -80,6 +80,8 @@ class AnalyticOption(BaseModel):
     konto: str
     naziv: str
     probni: bool = False
+    usage: int | None = None  # postings this year + last year in the client's plan; None = unknown
+    usage_label: str | None = None  # "često (46 knjiženja)", "nije korišćen"...
 
 
 class AnalyticSuggestion(BaseModel):
@@ -158,6 +160,28 @@ class ConfirmRequest(BaseModel):
     suggested_analytic_source: AnalyticSource | None = None
     given_konto: str | None = Field(default=None, pattern=r"^\d{3}$",
                                     description="Iris account of the item at confirmation time, if any")
+
+
+class AskRequest(BaseModel):
+    """The accountant's question about one invoice line (one LLM call, nothing is stored)."""
+
+    client_id: str = Field(min_length=1)
+    client_activity: str = Field(min_length=2)
+    item_name: str = Field(min_length=1)
+    item_description: str | None = None
+    supplier_name: str | None = None
+    supplier_pib: str | None = None
+    konto: str | None = Field(default=None, pattern=r"^\d{3}$")
+    analytic_konto: str | None = Field(default=None, pattern=r"^\d{4,}$")
+    question: str = Field(min_length=3, max_length=500)
+
+
+class AskResponse(BaseModel):
+    answer: str
+    on_topic: bool = True
+    recommended_konto: str | None = Field(default=None, description="Analytic account from the client's plan")
+    recommended_naziv: str | None = None
+    rejected_konto: str | None = Field(default=None, description="Recommended by the model but not in the plan")
 
 
 class HistoryRecord(BaseModel):

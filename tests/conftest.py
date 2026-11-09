@@ -11,7 +11,16 @@ from app.chart import ChartOfAccounts
 from app.classifier import Classifier
 from app.config import DATA_DIR, Settings
 from app.history import HistoryStore
-from app.llm.base import AnalyticChoice, AnalyticRequest, LLMError, LLMProvider, LLMRequest, LLMSuggestion
+from app.llm.base import (
+    AnalyticChoice,
+    AnalyticRequest,
+    LLMError,
+    LLMProvider,
+    LLMRequest,
+    LLMSuggestion,
+    QuestionAnswer,
+    QuestionRequest,
+)
 from app.main import create_app
 from app.rules import RuleEngine
 
@@ -26,11 +35,14 @@ class FakeLLM(LLMProvider):
 
     def __init__(self, konto: str = "539", sigurnost: float = 0.8, obrazlozenje: str = "Test obrazloženje.",
                  error: Exception | None = None, analytic: str | None = None, analytic_sigurnost: float = 0.9,
-                 analytic_error: Exception | None = None):
+                 analytic_error: Exception | None = None, question_answer: QuestionAnswer | None = None,
+                 question_error: Exception | None = None):
         self.konto, self.sigurnost, self.obrazlozenje, self.error = konto, sigurnost, obrazlozenje, error
         self.analytic, self.analytic_sigurnost, self.analytic_error = analytic, analytic_sigurnost, analytic_error
         self.requests: list[LLMRequest] = []
         self.analytic_requests: list[AnalyticRequest] = []
+        self.question_answer, self.question_error = question_answer, question_error
+        self.question_requests: list[QuestionRequest] = []
 
     def suggest(self, request: LLMRequest) -> LLMSuggestion:
         self.requests.append(request)
@@ -45,6 +57,12 @@ class FakeLLM(LLMProvider):
             raise self.analytic_error
         chosen = self.analytic or request.options[0].konto
         return AnalyticChoice(konto=chosen, sigurnost=self.analytic_sigurnost, obrazlozenje="Analitika test.")
+
+    def answer_question(self, request: QuestionRequest) -> QuestionAnswer:
+        self.question_requests.append(request)
+        if self.question_error:
+            raise self.question_error
+        return self.question_answer or QuestionAnswer(odgovor="Test odgovor.", preporuceni_konto="", na_temu=True)
 
 
 @pytest.fixture(autouse=True)

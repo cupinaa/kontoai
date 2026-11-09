@@ -54,8 +54,10 @@ def get_settings() -> Settings:
         db_path=_resolve(os.getenv("KONTOAI_DB_PATH", "kontoai.db")),
         chart_path=_resolve(os.getenv("KONTOAI_CHART_PATH", str(DATA_DIR / "kontni_okvir.json"))),
         rules_path=_resolve(os.getenv("KONTOAI_RULES_PATH", str(DATA_DIR / "rules.json"))),
+        # The client's real plan is confidential and lives OUTSIDE the repo; point at it from .env.
         analytic_plan_path=_resolve(
-            os.getenv("KONTOAI_ANALYTIC_PLAN_PATH", str(DATA_DIR / "analiticki_plan.json"))
+            os.getenv("KONTOAI_ANALYTIC_PLAN_PATH", "").strip() or os.getenv("KONTOAI_ANALYTIC_PLAN", "").strip()
+            or str(DATA_DIR / "analiticki_plan.json")
         ),
         max_llm_calls=int(os.environ["KONTOAI_MAX_LLM_CALLS"]) if os.getenv("KONTOAI_MAX_LLM_CALLS", "").strip()
         else None,

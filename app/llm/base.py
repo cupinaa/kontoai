@@ -116,6 +116,9 @@ je već određen. Tvoj zadatak je da izabereš analitički konto iz kontnog plan
 Pravila:
 - UVEK izaberi jedan od ponuđenih analitičkih konta — najbliži opisu stavke. Nikada ne izmišljaj konto.
 - Ako je opis nejasan ili izbor nije očigledan, stavi sigurnost ispod 0.6.
+- Uz konto može da stoji koliko ga klijent koristi (npr. "često (46 knjiženja)", "nije korišćen"). Kada dva
+  konta podjednako odgovaraju opisu, verovatniji je češće korišćen; konto koji bolje odgovara opisu ima prednost
+  i kada se ređe koristi.
 - Ako nijedan ponuđeni konto ne odgovara dobro, postavi "dobro_odgovara" na false. Ako je jasno da bi stavka
   bolje pristajala na drugi sintetički konto sa spiska sintetičkih konta, upiši ga u "bolji_konto"; inače ostavi prazno.
 - Oznake u uglastim zagradama (npr. [DOBAVLJAC_1]) zamenjuju poverljive podatke; ne pokušavaj da ih pogodiš.
@@ -131,10 +134,69 @@ def build_analytic_prompt(request: AnalyticRequest) -> str:
         "",
         "Ponuđeni analitički konti:",
     ]
-    lines.extend(f"- {o.konto} {o.naziv}" for o in request.options)
+    lines.extend(f"- {o.konto} {o.naziv}" + (f" — {o.usage_label}" if o.usage_label else "")
+                 for o in request.options)
     if request.chart:
         lines += ["", "Sintetička konta (samo za \"bolji_konto\"):"]
         lines.extend(f"- {o.konto} {o.naziv}" for o in request.chart)
+    return "\n".join(lines)
+
+
+class QuestionRequest(BaseModel):
+    """The accountant's question about one line. Everything here is already masked; the model never
+    sees the document header, the supplier's or the client's identity."""
+
+    question: str
+    item_text: str
+    client_activity: str
+    konto: str | None = None
+    konto_naziv: str = ""
+    analytic_konto: str | None = None
+    analytic_naziv: str = ""
+    options: list[AnalyticOption] = Field(default_factory=list)  # candidates from the client's plan
+    chart: list[AnalyticOption] = Field(default_factory=list)  # 3-digit accounts, for context only
+
+
+class QuestionAnswer(BaseModel):
+    odgovor: str = Field(description="Odgovor na srpskom, 2 do 4 rečenice")
+    preporuceni_konto: str = Field(default="", description="Analitički konto iz ponuđenog spiska, ili prazno")
+    na_temu: bool = Field(default=True, description="Da li je pitanje o kontiranju ove stavke")
+
+
+QUESTION_SYSTEM_PROMPT = """Ti si iskusan knjigovođa u Republici Srbiji. Knjigovođa ti postavlja pitanje o
+kontiranju jedne stavke sa ulazne fakture.
+
+Pravila:
+- Odgovaraj ISKLJUČIVO na osnovu priloženog: opis stavke, predloženi konto, kandidati iz kontnog plana klijenta
+  i sintetička konta. Ne izmišljaj propise, iznose ni činjenice kojih nema u prilogu.
+- Odgovor piši na srpskom jeziku (latinica), kratko: 2 do 4 rečenice.
+- "preporuceni_konto" sme da bude SAMO jedan od ponuđenih kandidata iz plana klijenta, ili prazno ako ne
+  preporučuješ promenu ili ne znaš. Nikada ne izmišljaj konto.
+- Ako ne znaš odgovor ili prilog nije dovoljan, reci to otvoreno i navedi šta bi trebalo proveriti.
+- Ako pitanje nije o kontiranju ove stavke, postavi "na_temu" na false, ostavi "preporuceni_konto" prazno
+  i u jednoj rečenici reci da odgovaraš samo na pitanja o kontiranju.
+- Oznake u uglastim zagradama (npr. [DOBAVLJAC_1]) zamenjuju poverljive podatke; ne pokušavaj da ih pogodiš.
+"""
+
+
+def build_question_prompt(request: QuestionRequest) -> str:
+    lines = [
+        f"Delatnost klijenta: {request.client_activity}",
+        f"Stavka fakture: {request.item_text}",
+        f"Predloženi sintetički konto: {request.konto or '—'} {request.konto_naziv}".rstrip(),
+        f"Predloženi analitički konto: {request.analytic_konto or '—'} {request.analytic_naziv}".rstrip(),
+        "",
+        "Kandidati iz kontnog plana klijenta:",
+    ]
+    if request.options:
+        lines.extend(f"- {o.konto} {o.naziv}" + (f" — {o.usage_label}" if o.usage_label else "")
+                     for o in request.options)
+    else:
+        lines.append("- (nema)")
+    if request.chart:
+        lines += ["", "Sintetička konta (kontni okvir):"]
+        lines.extend(f"- {o.konto} {o.naziv}" for o in request.chart)
+    lines += ["", f"Pitanje knjigovođe: {request.question}"]
     return "\n".join(lines)
 
 
@@ -154,3 +216,7 @@ class LLMProvider(ABC):
         Providers that do not implement it simply leave the analytic choice to the accountant.
         """
         raise LLMError(f"{self.name} ne podržava izbor analitičkog konta")
+
+    def answer_question(self, request: QuestionRequest) -> QuestionAnswer:
+        """Answer the accountant's question about one line. Raise `LLMError` on failure."""
+        raise LLMError(f"{self.name} ne podržava pitanja")

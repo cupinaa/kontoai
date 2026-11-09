@@ -10,10 +10,20 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
-from app.classifier import Classifier
+from app.classifier import Classifier, ItemContext
 from app.config import Settings, get_settings
-from app.llm.base import LLMProvider
-from app.models import Account, ConfirmRequest, ConfirmResponse, HistoryRecord, InvoiceRequest, InvoiceResponse
+from app.llm.base import CallBudgetExceeded, LLMError, LLMProvider
+from app.models import (
+    Account,
+    AskRequest,
+    AskResponse,
+    ConfirmRequest,
+    ConfirmResponse,
+    HistoryRecord,
+    InvoiceItem,
+    InvoiceRequest,
+    InvoiceResponse,
+)
 from app.sef_parser import InvoiceParseError, parse_sef_xml
 from app.service import build_classifier, classify_invoice
 
@@ -79,7 +89,8 @@ def create_app(settings: Settings | None = None, llm: LLMProvider | None = None,
             "client_id": client_id,
             "status": plan.status if plan.has_client(client_id) else None,
             "accounts": [
-                {"konto": a.konto, "naziv": a.naziv, "kratko": a.kratko, "sintetika": a.sintetika, "probni": a.probni}
+                {"konto": a.konto, "naziv": a.naziv, "kratko": a.kratko, "sintetika": a.sintetika, "probni": a.probni,
+                 "usage": a.usage}
                 for a in plan.accounts(client_id)
             ],
         }
@@ -157,6 +168,21 @@ def create_app(settings: Settings | None = None, llm: LLMProvider | None = None,
         )
         corrected = record.corrected or record.analytic_corrected
         return ConfirmResponse(status="corrected" if corrected else "confirmed", record=record)
+
+    @app.post("/ask", response_model=AskResponse)
+    def ask(request: AskRequest) -> AskResponse:
+        """The accountant's question about one line: one LLM call, counted against the server's call limit.
+        Nothing is stored; the conversation lives only in the open page."""
+        item = InvoiceItem(name=request.item_name, description=request.item_description,
+                           supplier_name=request.supplier_name, supplier_pib=request.supplier_pib)
+        ctx = ItemContext(client_id=request.client_id, client_activity=request.client_activity, item=item)
+        try:
+            return classifier.answer_question(ctx, request.konto, request.analytic_konto, request.question)
+        except CallBudgetExceeded as exc:
+            raise HTTPException(status_code=429, detail=f"Pitanje nije poslato: {exc}.") from exc
+        except LLMError as exc:
+            status = 503 if classifier.llm is None else 502
+            raise HTTPException(status_code=status, detail=str(exc)) from exc
 
     @app.get("/history/{client_id}", response_model=list[HistoryRecord])
     def history(client_id: str) -> list[HistoryRecord]:

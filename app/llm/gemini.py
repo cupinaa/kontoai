@@ -12,6 +12,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.llm.base import (
     ANALYTIC_SYSTEM_PROMPT,
+    QUESTION_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
     AnalyticChoice,
     AnalyticRequest,
@@ -20,7 +21,10 @@ from app.llm.base import (
     LLMProvider,
     LLMRequest,
     LLMSuggestion,
+    QuestionAnswer,
+    QuestionRequest,
     build_analytic_prompt,
+    build_question_prompt,
     build_user_prompt,
 )
 
@@ -56,6 +60,21 @@ def analytic_schema(allowed_codes: list[str], chart_codes: list[str] | None = No
         },
         "required": ["konto", "sigurnost", "obrazlozenje", "dobro_odgovara", "bolji_konto"],
         "propertyOrdering": ["konto", "sigurnost", "obrazlozenje", "dobro_odgovara", "bolji_konto"],
+    }
+
+
+def question_schema(candidate_codes: list[str]) -> dict[str, Any]:
+    """JSON schema for an answer to the accountant; a recommendation can only be an offered candidate."""
+    return {
+        "type": "object",
+        "properties": {
+            "odgovor": {"type": "string", "description": "Odgovor na srpskom, 2 do 4 rečenice"},
+            "preporuceni_konto": {"type": "string", "enum": [""] + list(candidate_codes),
+                                  "description": "Analitički konto iz ponuđenih kandidata, ili prazno"},
+            "na_temu": {"type": "boolean", "description": "Da li je pitanje o kontiranju ove stavke"},
+        },
+        "required": ["odgovor", "preporuceni_konto", "na_temu"],
+        "propertyOrdering": ["odgovor", "preporuceni_konto", "na_temu"],
     }
 
 
@@ -132,6 +151,14 @@ class GeminiProvider(LLMProvider):
             build_analytic_prompt(request),
             analytic_schema([o.konto for o in request.options], [o.konto for o in request.chart]),
             AnalyticChoice,
+        )
+
+    def answer_question(self, request: QuestionRequest) -> QuestionAnswer:
+        return self._generate(
+            QUESTION_SYSTEM_PROMPT,
+            build_question_prompt(request),
+            question_schema([o.konto for o in request.options]),
+            QuestionAnswer,
         )
 
     def _generate(self, system: str, prompt: str, schema: dict[str, Any], model_cls: type[T]) -> T:
