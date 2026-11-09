@@ -48,7 +48,7 @@ flowchart LR
 | Step | Source | Notes |
 |---|---|---|
 | 1 | **Item history** | The same supplier and the same or a similar description were confirmed before for this client. |
-| 2 | **Keyword rules** ([`data/rules.json`](data/rules.json)) | Fuel, energy, rent, telecom, office supplies, bank fees, insurance, accounting services, advertising. They are activity-aware: fuel bought by a petrol station is goods, not an expense. |
+| 2 | **Keyword rules** ([`data/rules.json`](data/rules.json)) | Fuel, energy, rent, trade fairs, telecom, office supplies, bank fees, insurance, accounting services, advertising. They are activity-aware: fuel bought by a petrol station is goods, not an expense. A more specific rule wins over a general one (*zakup sajamskog prostora* is a trade-fair cost, not rent); rules of equal weight that disagree leave the line to the LLM. |
 | 3 | **Supplier history** | Used only if **all** confirmed items of that supplier are on one account and there are at least two. |
 | 4 | **LLM** (Gemini) | Gets masked text only, and a JSON schema restricts it to the allowed accounts. |
 
@@ -61,7 +61,7 @@ The result is shown as a **green check** (matches Iris) or a **yellow dot** (dif
 | 1 | **The accountant's earlier decision** | Same item and supplier, and the same Iris account as last time: her account and analytic account are preselected. The panel says *"Prošli put ste izabrali 553 · 5530"*. |
 | 2 | **History** | Item, then supplier, but always below the current 3-digit account. |
 | 3 | **Only one option** | No LLM call is needed. |
-| 4 | **LLM** | Chooses from the offered list. An answer outside the list is rejected. |
+| 4 | **LLM** | Chooses from the offered list. An answer outside the list is rejected. When another candidate is about as good (it fits the description equally, or the model picked a less used account while a more used one has a similar name), the choice stays preselected but is flagged for review. |
 
 Analytic accounts may have 4 or more digits (5330, 53301); the first three digits are the parent account. When the plan carries posting counts (this year + last year), candidates are ranked by them and the LLM sees a usage label next to each one (*"često (46 knjiženja)"*, *"nije korišćen"*). Accounts that were never used are kept, just ranked last.
 
@@ -92,7 +92,7 @@ Every confirmation is stored in the client's history (SQLite). The next invoice 
 > [!WARNING]
 > **The evaluation dataset is synthetic, and I wrote it.** The 50 items, their expected accounts and the keyword rules were all written by the same person. The numbers below show that the pipeline works as designed. They are **not** a measure of real-world accuracy.
 
-[`scripts/evaluate.py`](scripts/evaluate.py) runs [`data/eval/dataset.json`](data/eval/dataset.json) through the 3-digit pipeline. The dataset has 30 easy items and 20 hard ones: ambiguous descriptions, invoice abbreviations, activity-dependent items and items no rule covers. The model answers come from one run on `gemini-3.6-flash` (2026-11-07); the score was recomputed on 2026-11-09 from the same cached answers after one expected account changed (see below). Full report in [`eval_results.md`](eval_results.md):
+[`scripts/evaluate.py`](scripts/evaluate.py) runs [`data/eval/dataset.json`](data/eval/dataset.json) through the 3-digit pipeline. The dataset has 30 easy items and 20 hard ones: ambiguous descriptions, invoice abbreviations, activity-dependent items and items no rule covers. The model answers come from one run on `gemini-3.6-flash` (2026-11-07); the score was recomputed on 2026-11-09 from the same cached answers (no new calls) after one expected account changed and a trade-fair rule was added (see below). Full report in [`eval_results.md`](eval_results.md):
 
 | | Items | Matched the expected account | Flagged for review | Wrong and *not* flagged |
 |---|---|---|---|---|
@@ -101,7 +101,7 @@ Every confirmation is stored in the client's history (SQLite). The next invoice 
 
 - The easy score is high by construction, because the rules were written with those items in mind.
 - The hard miss was an ambiguous line, and it was flagged for review. The easy miss is yeast for a bakery: the system books it as stock (101), the accountant as raw-material expense (511), and her answer now counts as correct.
-- History (6) and rules (12) decided 18 of the 50 items without the LLM, all of them correctly. The other 32 went to the LLM.
+- History (6) and rules (13) decided 19 of the 50 items without the LLM, all of them correctly. The other 31 went to the LLM. One of the rule items is a hard one (a stand at a trade fair): it is covered by the trade-fair rule added after a real-plan error, so the hard items are no longer fully independent of the rules.
 
 **A practising accountant reviewed the material blind**, without seeing the expected account or the system's suggestion ([`data/review/`](data/review)). She confirmed 22 of the 25 accounts of the chart and was unsure about 3. Of the 50 items she answered 19: 11 with an account, 8 with a `?` (the description was not enough). Of her 8 `?` items, the system had flagged only 1, so it is more confident than it should be on vague lines.
 
@@ -112,18 +112,20 @@ Later the client's real analytic plan became available (an export from the accou
 - Where the accountant's account exists in the plan **with the same meaning**, her answer is kept: source **`knjigovodja`** (9 items).
 - Where it does not (she answered from memory, and several of her analytic numbers mean something else in this client's plan), the account was **chosen from the plan by name**, the more used one when two fit equally: source **`izvedeno_iz_plana`** (14 items). These were chosen by me, not confirmed by her.
 
-The 23 items are her 12 example items plus the 11 blind-check items she gave an account for. Each item gets the expected 3-digit account as the accounting software's account, as it would in practice. The 3-digit columns score the system's *own* suggestion; the analytic step chooses below the given account. One run on `gemini-3.6-flash`, 2026-11-09 ([`eval_results_real_plan.md`](eval_results_real_plan.md), aggregate numbers only):
+The 23 items are her 12 example items plus the 11 blind-check items she gave an account for. Each item gets the expected 3-digit account as the accounting software's account, as it would in practice. The 3-digit columns score the system's *own* suggestion; the analytic step chooses below the given account. Model answers from one run on `gemini-3.6-flash` (2026-11-09), re-scored the same day from cached answers (no new calls) after the two fixes below ([`eval_results_real_plan.md`](eval_results_real_plan.md), aggregate numbers only):
 
 | Source of the expected account | Items | 3-digit correct | Flagged | Silent errors | Analytic correct | Flagged | Silent errors |
 |---|---|---|---|---|---|---|---|
-| `knjigovodja` (her answer, matches the plan) | 9 | 6 | 1 | 2 | 9 | 0 | 0 |
-| `izvedeno_iz_plana` (chosen from the plan by name) | 14 | 14 | 0 | 0 | 13 | 0 | 1 |
-| all | 23 | 20 | 1 | 2 | 22 | 0 | 1 |
+| `knjigovodja` (her answer, matches the plan) | 9 | 7 | 1 | 1 | 9 | 0 | 0 |
+| `izvedeno_iz_plana` (chosen from the plan by name) | 14 | 14 | 0 | 0 | 13 | 3 | 0 |
+| all | 23 | 21 | 1 | 1 | 22 | 3 | 0 |
 
 - Read the `izvedeno_iz_plana` row with care: the expected account and the system's answer were both chosen by matching the item to the plan's account names, so agreement there is easier than on her own answers.
-- The 3-digit silent errors are policy and keyword cases: a trade-fair rental caught by the general *rent* rule, and yeast booked as stock instead of expense. The flagged one is a spare part she books as a one-off write-off of tools.
-- The analytic silent error is a line where two accounts fit the description about equally; the model picked the less used one.
-- 23 items are far too few for a reliable accuracy figure. Every analytic suggestion was confident, so on these items nothing would have been shown for review.
+- **Two fixes after the first run.** (1) A trade-fair rental was caught by the general *rent* rule; a more specific rule now wins over a general one, and the same was done for advertising and insurance lines that mention rent. (2) The only analytic error was a line where two accounts fit about equally and the model picked the less used one, with full confidence. Close candidates are now flagged.
+- Before the fixes: 3-digit 20/23 with 2 silent errors; analytic 22/23 with 1 silent error and nothing flagged.
+- The remaining 3-digit silent error is yeast booked as stock instead of expense (a policy question). The flagged one is a spare part she books as a one-off write-off of tools.
+- The analytic step now flags 3 of 23 items: the wrong one and two correct ones whose candidates really are close (warehouse vs. business premises; two sub-accounts of the same material account).
+- 23 items are far too few for a reliable accuracy figure, and the fixes were made after looking at these items, so the re-scored numbers are optimistic.
 
 The main lesson stays the same: a generic model encodes *one* accounting policy, while each client has its own. That is why KontoAI learns per client, chooses only from the client's own plan, and treats its suggestions as proposals.
 

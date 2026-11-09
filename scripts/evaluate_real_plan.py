@@ -168,8 +168,8 @@ def summary_md(rows: list[Row], info: dict) -> str:
         k, a = stats(group, "konto"), stats(group, "analytic")
         lines.append(f"| {label} | {len(group)} | {k['correct']}/{k['n']} ({k['pct']}) | {k['flagged']} | {k['silent']} "
                      f"| {a['correct']}/{a['n']} ({a['pct']}) | {a['flagged']} | {a['silent']} |")
-    lines += ["", f"API requests sent: {info['calls']} (hard limit {info['max_calls']}); answers reused from the "
-              f"evaluation cache (identical requests of the earlier synthetic run): {info.get('cached', 0)}. "
+    lines += ["", f"API requests sent in this run: {info['calls']} (hard limit {info['max_calls']}); answers reused from "
+              f"the evaluation cache (identical masked requests answered in earlier runs): {info.get('cached', 0)}. "
               f"Tokens: prompt {info['usage'].get('prompt_tokens', 0)}, output {info['usage'].get('output_tokens', 0)}, "
               f"thinking {info['usage'].get('thinking_tokens', 0)}. Estimated cost: {info['cost']}."]
     return "\n".join(lines) + "\n"
@@ -181,8 +181,8 @@ def private_md(rows: list[Row], info: dict) -> str:
              "|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         it = r.item
-        mark3 = "✅" if r.konto_ok else ("🟡" if r.konto_flagged else "❌")
-        markA = "✅" if r.analytic_ok else ("🟡" if r.analytic_flagged else "❌")
+        mark3 = ("✅" if r.konto_ok else "❌") + (" 🟡" if r.konto_flagged else "")
+        markA = ("✅" if r.analytic_ok else "❌") + (" 🟡" if r.analytic_flagged else "")
         lines.append(f"| {it['id']} | {it['izvor']} | {it['name']} | {it['expected_konto']} | {r.konto or '—'} {mark3} "
                      f"| {r.confidence:.2f} | {it['expected_analytic']} {it.get('expected_analytic_name', '')} "
                      f"| {r.analytic or '—'} {r.analytic_name or ''} {markA} | {r.analytic_source or '—'} |")

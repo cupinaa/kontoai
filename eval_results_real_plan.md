@@ -11,8 +11,8 @@
 
 | Group | Items | 3-digit correct | Flagged | Silent errors | Analytic correct | Flagged | Silent errors |
 |---|---|---|---|---|---|---|---|
-| all | 23 | 20/23 (87%) | 1 | 2 | 22/23 (96%) | 0 | 1 |
-| knjigovodja | 9 | 6/9 (67%) | 1 | 2 | 9/9 (100%) | 0 | 0 |
-| izvedeno_iz_plana | 14 | 14/14 (100%) | 0 | 0 | 13/14 (93%) | 0 | 1 |
+| all | 23 | 21/23 (91%) | 1 | 1 | 22/23 (96%) | 3 | 0 |
+| knjigovodja | 9 | 7/9 (78%) | 1 | 1 | 9/9 (100%) | 0 | 0 |
+| izvedeno_iz_plana | 14 | 14/14 (100%) | 0 | 0 | 13/14 (93%) | 3 | 0 |
 
-API requests sent: 31 (hard limit 33); answers reused from the evaluation cache (identical requests of the earlier synthetic run): 7. Tokens: prompt 32302, output 2331, thinking 15650. Estimated cost: $0.0917.
+API requests sent in this run: 0 (hard limit 0); answers reused from the evaluation cache (identical masked requests answered in earlier runs): 38. Tokens: prompt 0, output 0, thinking 0. Estimated cost: $0.0000.
