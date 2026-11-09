@@ -10,7 +10,7 @@
 
 > **Status: prototype.**
 > - The chart of accounts and the analytic plan in this repository still need an accountant's sign-off.
-> - The evaluation data is synthetic.
+> - The 50-item evaluation set is synthetic; the evaluation against the client's real plan has only 23 items.
 > - All invoices, companies, tax IDs and people in the repository are invented.
 
 ## The problem
@@ -92,33 +92,42 @@ Every confirmation is stored in the client's history (SQLite). The next invoice 
 > [!WARNING]
 > **The evaluation dataset is synthetic, and I wrote it.** The 50 items, their expected accounts and the keyword rules were all written by the same person. The numbers below show that the pipeline works as designed. They are **not** a measure of real-world accuracy.
 
-[`scripts/evaluate.py`](scripts/evaluate.py) runs [`data/eval/dataset.json`](data/eval/dataset.json) through the 3-digit pipeline. The dataset has 30 easy items and 20 hard ones: ambiguous descriptions, invoice abbreviations, activity-dependent items and items no rule covers. One run on `gemini-3.6-flash` (2026-11-07, full report in [`eval_results.md`](eval_results.md)) gave:
+[`scripts/evaluate.py`](scripts/evaluate.py) runs [`data/eval/dataset.json`](data/eval/dataset.json) through the 3-digit pipeline. The dataset has 30 easy items and 20 hard ones: ambiguous descriptions, invoice abbreviations, activity-dependent items and items no rule covers. The model answers come from one run on `gemini-3.6-flash` (2026-11-07); the score was recomputed on 2026-11-09 from the same cached answers after one expected account changed (see below). Full report in [`eval_results.md`](eval_results.md):
 
 | | Items | Matched the expected account | Flagged for review | Wrong and *not* flagged |
 |---|---|---|---|---|
-| Easy | 30 | 30 | 0 | 0 |
+| Easy | 30 | 29 | 0 | 1 |
 | Hard | 20 | 19 | 4 | 0 |
 
-- The easy 100% is true by construction, because the rules were written with those items in mind.
-- The one miss was an ambiguous line, and it was flagged for review.
+- The easy score is high by construction, because the rules were written with those items in mind.
+- The hard miss was an ambiguous line, and it was flagged for review. The easy miss is yeast for a bakery: the system books it as stock (101), the accountant as raw-material expense (511), and her answer now counts as correct.
 - History (6) and rules (12) decided 18 of the 50 items without the LLM, all of them correctly. The other 32 went to the LLM.
 
-**A practising accountant reviewed the material blind**, without seeing the expected account or the system's suggestion ([`data/review/`](data/review)):
-- **Chart of accounts:** she confirmed 22 of the 25 accounts and was unsure about 3.
-- **Blind check:** she answered 19 of the 50 items. 11 got an account and 8 a `?`, meaning the description was not enough.
-- **Agreement:** on the 11 items with an account, she agreed with the system on the 3-digit level in **7**.
-- **The 4 disagreements** were all lines the system was confident about, so for her they would be silent errors. They come from accounting policy, not misreading:
-  - a laptop booked as an expense instead of a fixed asset;
-  - yeast booked directly to expense instead of stock;
-  - toner;
-  - diesel bought by a petrol station.
+**A practising accountant reviewed the material blind**, without seeing the expected account or the system's suggestion ([`data/review/`](data/review)). She confirmed 22 of the 25 accounts of the chart and was unsure about 3. Of the 50 items she answered 19: 11 with an account, 8 with a `?` (the description was not enough). Of her 8 `?` items, the system had flagged only 1, so it is more confident than it should be on vague lines.
 
-  Some disagreements may reflect the accountant answering from her own client's accounting policy rather than the business activity listed next to each item; this is not yet confirmed.
-- **Overconfidence:** of her 8 `?` items, the system had flagged only 1. It is more confident than it should be on vague lines.
+### Against the client's real analytic plan
 
-This is the main lesson. A generic model encodes *one* accounting policy, while each client has its own. That is why KontoAI learns per client and treats its suggestions as proposals.
+Later the client's real analytic plan became available (an export from the accounting software; it is confidential and kept outside this repository). It is now the reference:
 
-**The analytic step has no accuracy number yet.** The current analytic plan was built from the same accountant's answers, so measuring against them would grade the system against itself. It will be measured once a real analytic plan and postings that were not used to build it are available.
+- Where the accountant's account exists in the plan **with the same meaning**, her answer is kept: source **`knjigovodja`** (9 items).
+- Where it does not (she answered from memory, and several of her analytic numbers mean something else in this client's plan), the account was **chosen from the plan by name**, the more used one when two fit equally: source **`izvedeno_iz_plana`** (14 items). These were chosen by me, not confirmed by her.
+
+The 23 items are her 12 example items plus the 11 blind-check items she gave an account for. Each item gets the expected 3-digit account as the accounting software's account, as it would in practice. The 3-digit columns score the system's *own* suggestion; the analytic step chooses below the given account. One run on `gemini-3.6-flash`, 2026-11-09 ([`eval_results_real_plan.md`](eval_results_real_plan.md), aggregate numbers only):
+
+| Source of the expected account | Items | 3-digit correct | Flagged | Silent errors | Analytic correct | Flagged | Silent errors |
+|---|---|---|---|---|---|---|---|
+| `knjigovodja` (her answer, matches the plan) | 9 | 6 | 1 | 2 | 9 | 0 | 0 |
+| `izvedeno_iz_plana` (chosen from the plan by name) | 14 | 14 | 0 | 0 | 13 | 0 | 1 |
+| all | 23 | 20 | 1 | 2 | 22 | 0 | 1 |
+
+- Read the `izvedeno_iz_plana` row with care: the expected account and the system's answer were both chosen by matching the item to the plan's account names, so agreement there is easier than on her own answers.
+- The 3-digit silent errors are policy and keyword cases: a trade-fair rental caught by the general *rent* rule, and yeast booked as stock instead of expense. The flagged one is a spare part she books as a one-off write-off of tools.
+- The analytic silent error is a line where two accounts fit the description about equally; the model picked the less used one.
+- 23 items are far too few for a reliable accuracy figure. Every analytic suggestion was confident, so on these items nothing would have been shown for review.
+
+The main lesson stays the same: a generic model encodes *one* accounting policy, while each client has its own. That is why KontoAI learns per client, chooses only from the client's own plan, and treats its suggestions as proposals.
+
+**Questions** (*Pitaj o ovoj stavci*) were checked with four fixed questions ([`scripts/check_questions.py`](scripts/check_questions.py), 4 calls). The model corrected a wrong analytic account to the right one from the plan, chose a sensible candidate for package delivery, said plainly that none of the offered candidates fit when the line belonged under another 3-digit account (without inventing one), and declined an off-topic question.
 
 ## Running it
 
@@ -161,6 +170,7 @@ pytest                                   # no network and no API key needed: Gem
 python scripts/evaluate.py --dry-run     # plan an evaluation: calls needed, nothing sent
 python scripts/evaluate.py --max-calls 40
 python scripts/check_questions.py --dry-run   # the fixed question check: masked prompts, nothing sent
+python scripts/evaluate_real_plan.py --dataset <private>.json --forbidden <private>.txt --dry-run
 ```
 
 GitHub Actions runs the tests and builds and smoke-tests the Docker image on every push.
@@ -186,7 +196,7 @@ Interactive docs are at `/docs`.
 | [`data/kontni_okvir.json`](data/kontni_okvir.json) | 25 three-digit accounts from the *Pravilnik o kontnom okviru* (Sl. glasnik RS 89/2020) that are relevant to incoming invoices. A demonstration subset that is **not verified**. |
 | [`data/analiticki_plan.json`](data/analiticki_plan.json) | **Trial** analytic plan for the demo client `K001` (17 accounts), built from the accountant's review answers. A client's real plan is confidential and is **never** stored in this repository: [`scripts/import_pdf_plan.py`](scripts/import_pdf_plan.py) reads the accounting software's *Konta: Lista* PDF (only current accounts of classes 01, 02, 10, 13 and 5, with posting counts), refuses to write inside the repository, and the app loads the result from `KONTOAI_ANALYTIC_PLAN_PATH`. CSV/XLSX exports go through [`scripts/import_analytic_plan.py`](scripts/import_analytic_plan.py). |
 | [`data/samples/`](data/samples) | Invented SEF invoices. In invoices 06 and 07 the accounting-software account is carried in `cbc:AccountingCost` **for the demo only**. In practice Iris does not write it into the supplier's XML; the accounts would come from an Iris export and be sent as `given_konto`. |
-| [`data/eval/`](data/eval) | The synthetic evaluation dataset, the accountant's own example items, and the suggestions from the evaluation run. |
+| [`data/eval/`](data/eval) | The synthetic evaluation dataset, the accountant's own example items, and the suggestions from the evaluation run. Items the accountant answered carry `izvor`: `knjigovodja` or `izvedeno_iz_plana`. Only 3-digit accounts are public; the expected analytic accounts depend on the client's confidential plan and are kept outside the repository. |
 | [`data/review/`](data/review) | The Excel files the accountant filled in, the decisions taken after her review, and the comparison report. [`scripts/review.py`](scripts/review.py) generates and imports them. |
 
 ## Project structure
@@ -205,8 +215,8 @@ The model can be swapped. The rest of the app only uses the `LLMProvider` interf
 
 ## Limitations
 
-- **Unverified reference data.** The chart of accounts is a partial, unverified list, and the analytic plan is a trial version derived from a single accountant's answers.
-- **Synthetic evaluation.** There is no accuracy number for the analytic step, and the 3-digit evaluation is too small and too close to the rules to say how the system performs on real invoices.
+- **Unverified reference data.** The 3-digit chart in this repository is a partial, unverified list, and the public analytic plan is a trial version for the demo.
+- **Small evaluation.** The 50-item set is synthetic and close to the rules; the real-plan evaluation has 23 items, 14 of them with an expected account chosen from the plan by name rather than confirmed by the accountant.
 - **One accounting policy.** Fixed-asset thresholds and expense-vs-stock decisions differ between clients. The system learns them only from confirmations, and a generic LLM tends to be overconfident about them.
 - **Simple history matching.** Text similarity is word overlap, so rewordings such as *"zakup kancelarije"* vs. *"zakup poslovnog prostora"* are not recognised as the same item.
 - **Questions answer from a narrow context.** The model sees the line and the plan candidates, not the client's postings, so it cannot know the client's own policy unless the accountant says it in the question.
@@ -217,7 +227,7 @@ The model can be swapped. The rest of the app only uses the `LLMProvider` interf
 
 ## Next steps
 
-1. Get a set of real, already-booked invoices to measure the analytic step against the client's real plan.
+1. Have the accountant confirm the 14 accounts chosen from the plan by name, and get real, already-booked invoices to measure on.
 2. Import the accounting software's 3-digit proposals through its export instead of the demo `AccountingCost` field.
 3. Per-client accounting policy (fixed-asset threshold, expense vs. stock) as explicit settings.
 4. Better item matching (embeddings), batching LLM calls per invoice, and the full posting entry including VAT.
