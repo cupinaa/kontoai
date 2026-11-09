@@ -63,7 +63,7 @@ The result is shown as a **green check** (matches Iris) or a **yellow dot** (dif
 | 3 | **Only one option** | No LLM call is needed. |
 | 4 | **LLM** | Chooses from the offered list. An answer outside the list is rejected. |
 
-Analytic accounts may have 4 or more digits (5130, 53190); the first three digits are the parent account. When the plan carries posting counts (this year + last year), candidates are ranked by them and the LLM sees a usage label next to each one (*"često (46 knjiženja)"*, *"nije korišćen"*). Accounts that were never used are kept, just ranked last.
+Analytic accounts may have 4 or more digits (5330, 53301); the first three digits are the parent account. When the plan carries posting counts (this year + last year), candidates are ranked by them and the LLM sees a usage label next to each one (*"često (46 knjiženja)"*, *"nije korišćen"*). Accounts that were never used are kept, just ranked last.
 
 Something is **always preselected**, so the accountant only confirms or changes it:
 - An unsure suggestion is preselected but stays yellow and is not part of *Potvrdi sve usklađene*.
