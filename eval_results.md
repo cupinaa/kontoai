@@ -1,6 +1,6 @@
 # KontoAI — evaluation results
 
-- Date: 2026-11-07 11:26
+- Date: 2026-11-09 14:04
 - LLM: Gemini `gemini-3.6-flash`
 - Items: 50 (30 easy, 20 hard) from `data/eval/dataset.json`
 - Review threshold: confidence < 0.75
@@ -14,18 +14,18 @@
 
 | Group | Items | Correct | Accuracy | Flagged for review | Silent errors | Avg time / item |
 |---|---|---|---|---|---|---|
-| Easy (clear descriptions) | 30 | 30 | **100.0%** | 0 | 0 | 1839.0 ms |
-| Hard (ambiguous, abbreviations, activity-dependent, no rule) | 20 | 19 | **95.0%** | 4 | 0 | 4985.6 ms |
-| **All** | 50 | 49 | **98.0%** | 4 | 0 | 3097.6 ms |
+| Easy (clear descriptions) | 30 | 29 | **96.7%** | 0 | 1 | 0.5 ms |
+| Hard (ambiguous, abbreviations, activity-dependent, no rule) | 20 | 19 | **95.0%** | 4 | 0 | cached |
+| **All** | 50 | 48 | **96.0%** | 4 | 1 | 0.5 ms |
 
 ### Hard items by category
 
 | Group | Items | Correct | Accuracy | Flagged for review | Silent errors | Avg time / item |
 |---|---|---|---|---|---|---|
-| ambiguous description | 5 | 4 | **80.0%** | 4 | 0 | 6119.7 ms |
-| invoice abbreviation | 4 | 4 | **100.0%** | 0 | 0 | 4134.6 ms |
-| depends on client activity | 6 | 6 | **100.0%** | 0 | 0 | 5067.0 ms |
-| not covered by any rule | 5 | 5 | **100.0%** | 0 | 0 | 4434.6 ms |
+| ambiguous description | 5 | 4 | **80.0%** | 4 | 0 | cached |
+| invoice abbreviation | 4 | 4 | **100.0%** | 0 | 0 | cached |
+| depends on client activity | 6 | 6 | **100.0%** | 0 | 0 | cached |
+| not covered by any rule | 5 | 5 | **100.0%** | 0 | 0 | cached |
 
 ## By decision source
 
@@ -33,19 +33,21 @@
 |---|---|---|---|---|---|---|
 | history | 6 | 6 | **100.0%** | 0 | 0 | 0.8 ms |
 | rules | 12 | 12 | **100.0%** | 0 | 0 | 0.4 ms |
-| LLM | 32 | 31 | **96.9%** | 4 | 0 | 4839.8 ms |
+| LLM | 32 | 30 | **93.8%** | 4 | 1 | cached |
+
+Some LLM answers were served from the local cache; their time is excluded from the averages.
 
 ## API usage
 
 | Metric | Value |
 |---|---|
-| API requests sent (incl. retries) | 32 of max 40 |
-| Successful responses | 32 |
-| Answers served from cache | 0 |
-| Prompt tokens | 42,202 |
-| Output tokens | 2,741 |
-| Thinking tokens | 21,558 |
-| Estimated cost (paid tier, prices of 2026-11-07) | $0.123 |
+| API requests sent (incl. retries) | 0 of max 0 |
+| Successful responses | 0 |
+| Answers served from cache | 32 |
+| Prompt tokens | 0 |
+| Output tokens | 0 |
+| Thinking tokens | 0 |
+| Estimated cost (paid tier, prices of 2026-11-07) | $0.000 |
 
 ## Per item
 
@@ -56,7 +58,7 @@
 | 3 | Jogurt 1,5% 1kg | easy | 134 | 134 | history | 0.85 |  | ✅ |
 | 4 | Kiselo mleko 0,5L | easy | 134 | 134 | history | 0.85 |  | ✅ |
 | 5 | Brašno T-500 25kg | easy | 101 | 101 | history | 0.95 |  | ✅ |
-| 6 | Brašno T-400 25kg | easy | 101 | 101 | history | 0.80 |  | ✅ |
+| 6 | Brašno T-400 25kg | easy | 101 | 101 | history | 0.90 |  | ✅ |
 | 7 | Evrodizel | easy | 513 | 513 | rules | 0.90 |  | ✅ |
 | 8 | BMB 95 | easy | 513 | 513 | rules | 0.90 |  | ✅ |
 | 9 | Zakup poslovnog prostora za novembar | easy | 533 | 533 | rules | 0.90 |  | ✅ |
@@ -74,7 +76,7 @@
 | 21 | Gazirani sok kola 0,5L, pakovanje 12 kom | easy | 134 | 134 | LLM | 0.95 |  | ✅ |
 | 22 | Prevoz robe kamionom Beograd - Kragujevac | easy | 531 | 531 | LLM | 0.95 |  | ✅ |
 | 23 | Evrodizel - nabavka za maloprodaju | easy | 134 | 134 | LLM | 0.98 |  | ✅ |
-| 24 | Kvasac svež 1kg | easy | 101 | 101 | LLM | 0.85 |  | ✅ |
+| 24 | Kvasac svež 1kg | easy | 511 | 101 | LLM | 0.85 |  | ❌ silent |
 | 25 | Popravka peći za pečenje | easy | 532 | 532 | LLM | 0.95 |  | ✅ |
 | 26 | Kurirska dostava dokumenata | easy | 531 | 531 | LLM | 0.95 |  | ✅ |
 | 27 | Godišnja članarina u udruženju IT kompanija | easy | 554 | 554 | LLM | 0.98 |  | ✅ |
@@ -104,4 +106,5 @@
 
 ## Mismatches and undecided items
 
+- **#24 Kvasac svež 1kg** — expected 511, got 101 (NOT flagged): Kvasac je osnovna sirovina u proizvodnji hleba i peciva, te se knjiži na kontu 101 kao zaliha materijala (ili na kontu 511 ukoliko preduzeće knjiži nabavku direktno na trošak).
 - **#33 Usluge po ugovoru za oktobar** — expected 539, got 530 (flagged): Za delatnost kurirskih usluga, ugovorene usluge trećih lica se najčešće odnose na angažovanje podizvođača na poslovima dostave (konto 530). Zbog uopštenog opisa stavke, postoji mogućnost da se radi i o neproizvodnim uslugama.

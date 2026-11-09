@@ -1,6 +1,6 @@
 {
-  "_napomena": "Stavke i tačna konta koje je uneo knjigovođa (data/review/nove_stavke.xlsx). Evaluacija na ovom skupu traži posebno odobrenje jer šalje pozive ka LLM-u.",
-  "_note": "Items and accounts provided by an accountant. Running the evaluation on them needs separate approval because it calls the LLM API. Items with exclude_from_eval=true are skipped by scripts/evaluate.py.",
+  "_napomena": "Stavke koje je uneo knjigovođa (data/review/nove_stavke.xlsx). Očekivani trocifreni konto je usklađen sa kontnim planom klijenta: 'izvor' = 'knjigovodja' (njen odgovor se poklapa sa planom) ili 'izvedeno_iz_plana' (konto izabran po nazivu iz plana). Analitička konta zavise od poverljivog plana klijenta i čuvaju se van repozitorijuma.",
+  "_note": "Items provided by an accountant. The expected 3-digit account follows the client's chart: 'izvor' is 'knjigovodja' (her answer matches the plan) or 'izvedeno_iz_plana' (chosen from the plan by name). Expected analytic accounts depend on the client's confidential plan and are kept outside the repository.",
   "source": "accountant",
   "imported": "2026-11-07",
   "clients": {
@@ -13,159 +13,157 @@
       "client_id": "K001",
       "name": "Troskovi postanski usluga",
       "expected_konto": "531",
-      "expected_analytic": "5311",
       "accountant_konto_raw": "5311",
       "note": "slanje paketa kupcu",
       "konto_in_chart": true,
       "difficulty": "accountant",
       "expected_source": "unknown",
-      "delatnost_dobavljaca": "transport postanskih usluga"
+      "delatnost_dobavljaca": "transport postanskih usluga",
+      "izvor": "izvedeno_iz_plana"
     },
     {
       "id": 2,
       "client_id": "K001",
       "name": "troskovi zakupa poslovnog prostora",
       "expected_konto": "533",
-      "expected_analytic": "5330",
       "accountant_konto_raw": "5330",
       "note": "zakup poslovnog prostora",
       "konto_in_chart": true,
       "difficulty": "accountant",
       "expected_source": "unknown",
-      "delatnost_dobavljaca": "javna uprava za gradjevinske objekte"
+      "delatnost_dobavljaca": "javna uprava za gradjevinske objekte",
+      "izvor": "izvedeno_iz_plana"
     },
     {
       "id": 3,
       "client_id": "K001",
       "name": "potrsonja elektricne energije",
       "expected_konto": "513",
-      "expected_analytic": "5133",
       "accountant_konto_raw": "5133",
       "note": "potrosnja elektricne energije za prethodni mesec",
       "konto_in_chart": true,
       "difficulty": "accountant",
       "expected_source": "unknown",
-      "delatnost_dobavljaca": "distribucija elektricne energije"
+      "delatnost_dobavljaca": "distribucija elektricne energije",
+      "izvor": "izvedeno_iz_plana"
     },
     {
       "id": 4,
       "client_id": "K001",
       "name": "nabavka rezervnih delova za masinu",
       "expected_konto": "515",
-      "expected_analytic": "5150",
       "accountant_konto_raw": "5150",
       "note": "jednokratni otpis alata ciji je vek trajanja manji od godinu dana ",
       "konto_in_chart": true,
       "difficulty": "accountant",
       "expected_source": "unknown",
-      "delatnost_dobavljaca": "maloprodaja rezervnih delova"
+      "delatnost_dobavljaca": "maloprodaja rezervnih delova",
+      "izvor": "knjigovodja"
     },
     {
       "id": 5,
       "client_id": "K001",
       "name": "zakup sajamskog prostora",
       "expected_konto": "534",
-      "expected_analytic": "5340",
       "accountant_konto_raw": "5340",
       "note": "placanje zakupa za izlaganje na sajmu",
       "konto_in_chart": true,
       "difficulty": "accountant",
       "expected_source": "unknown",
-      "delatnost_dobavljaca": null
+      "delatnost_dobavljaca": null,
+      "izvor": "knjigovodja"
     },
     {
       "id": 6,
       "client_id": "K001",
       "name": "troskovi odvozenja smeca",
       "expected_konto": "539",
-      "expected_analytic": "5390",
       "accountant_konto_raw": "5390",
       "note": "placanje usluga komunlanom preduzecu",
       "konto_in_chart": true,
       "difficulty": "accountant",
       "expected_source": "unknown",
-      "delatnost_dobavljaca": "javno preduzece za cistocu"
+      "delatnost_dobavljaca": "javno preduzece za cistocu",
+      "izvor": "izvedeno_iz_plana"
     },
     {
       "id": 7,
       "client_id": "K001",
       "name": "usluge advokata",
       "expected_konto": "550",
-      "expected_analytic": "5501",
       "accountant_konto_raw": "5501",
       "note": "placanje pravnih usluga",
       "konto_in_chart": true,
       "difficulty": "accountant",
       "expected_source": "unknown",
-      "delatnost_dobavljaca": "advokatska kancelarija"
+      "delatnost_dobavljaca": "advokatska kancelarija",
+      "izvor": "knjigovodja"
     },
     {
       "id": 8,
       "client_id": "K001",
       "name": "pruzanje zdravstvenih usluga",
       "expected_konto": "550",
-      "expected_analytic": "5503",
       "accountant_konto_raw": "5503",
       "note": "sanitarni pregled zaposlenih",
       "konto_in_chart": true,
       "difficulty": "accountant",
       "expected_source": "unknown",
-      "delatnost_dobavljaca": "zdravstvena usluga"
+      "delatnost_dobavljaca": "zdravstvena usluga",
+      "izvor": "izvedeno_iz_plana"
     },
     {
       "id": 9,
       "client_id": "K001",
       "name": "troskovi reprezentacije",
       "expected_konto": "551",
-      "expected_analytic": "5510",
       "accountant_konto_raw": "5510",
       "note": "poslovni rucak sa klijentima",
       "konto_in_chart": true,
       "difficulty": "accountant",
       "expected_source": "unknown",
-      "delatnost_dobavljaca": "ugostiteljske usluge"
+      "delatnost_dobavljaca": "ugostiteljske usluge",
+      "izvor": "knjigovodja"
     },
     {
       "id": 10,
       "client_id": "K001",
       "name": "bankarske usluge",
       "expected_konto": "553",
-      "expected_analytic": "5530",
       "accountant_konto_raw": "5530",
       "note": "troskovi bankarskih provizija",
       "konto_in_chart": true,
       "difficulty": "accountant",
       "expected_source": "unknown",
-      "delatnost_dobavljaca": "banka"
+      "delatnost_dobavljaca": "banka",
+      "izvor": "knjigovodja"
     },
     {
       "id": 11,
       "client_id": "K001",
       "name": "oglasavnje u casopisu",
-      "expected_konto": "559",
-      "expected_analytic": "5590",
+      "expected_konto": "535",
       "accountant_konto_raw": "5590",
       "note": "reklama za proizvode",
       "konto_in_chart": true,
       "difficulty": "accountant",
       "expected_source": "unknown",
       "delatnost_dobavljaca": "oglasavanje sredstvima javnog informisanja",
-      "status": "ceka_ispravku",
-      "exclude_from_eval": true,
-      "status_razlog": "Greška knjigovođe u kontu; čeka ispravku. Izuzeto iz svake evaluacije i iz probnog analitičkog plana."
+      "izvor": "izvedeno_iz_plana",
+      "status": "ispravljeno_po_planu"
     },
     {
       "id": 12,
       "client_id": "K001",
       "name": "nabavka maski i rukavica",
-      "expected_konto": "539",
-      "expected_analytic": "5391",
+      "expected_konto": "512",
       "accountant_konto_raw": "5391",
       "note": "zastita na radu",
       "konto_in_chart": true,
       "difficulty": "accountant",
       "expected_source": "unknown",
-      "delatnost_dobavljaca": "maloprodaja"
+      "delatnost_dobavljaca": "maloprodaja",
+      "izvor": "izvedeno_iz_plana"
     }
   ]
 }

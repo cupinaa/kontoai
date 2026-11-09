@@ -218,4 +218,4 @@ def test_predictions_file_matches_evaluation():
     assert preds["cache_misses"] == 0
     assert len(preds["predictions"]) == len(data["items"])
     correct = sum(preds["predictions"][str(i["id"])]["konto"] == i["expected_konto"] for i in data["items"])
-    assert correct == 49
+    assert correct == 48  # yeast (id 24) follows the accountant: 511, the system says 101
