@@ -38,3 +38,11 @@ Thumbs.db
 
 # Local design-linter config
 .impeccable/
+
+# Confidential client material - keep outside the repo (C:\Users\aleks\kontoai_private\)
+/*.pdf
+/*.csv
+/*.xlsx
+private/
+kontoai_private/
+data/private/
