@@ -70,6 +70,10 @@ class Masker:
             self.add_known("DOBAVLJAC", core, canonical=name)
 
     # --- masking ----------------------------------------------------------------------
+    def placeholder(self, label: str, value: str) -> str:
+        """Numbered placeholder for `value` (the same value always gets the same one); `unmask` reverses it."""
+        return self._placeholder(label, value)
+
     def _placeholder(self, label: str, value: str) -> str:
         key = (label, value.casefold())
         if key not in self._placeholder_by_value:

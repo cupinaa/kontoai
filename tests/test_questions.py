@@ -21,7 +21,7 @@ PLAN = {
         {"konto": "5130", "naziv": "Troškovi električne energije", "tg": 12, "pg": 11},
         {"konto": "5133", "naziv": "Troškovi goriva za vozila", "tg": 30, "pg": 31},
         {"konto": "5139", "naziv": "Drugi troškovi goriva i energije", "tg": 0, "pg": 0},
-        {"konto": "53190", "naziv": "Drugi troskovi transportnih usluga-PTT markice", "tg": 6, "pg": 7},
+        {"konto": "53301", "naziv": "Zakup skladista-ostalo", "tg": 6, "pg": 7},
     ]}},
 }
 
@@ -153,3 +153,21 @@ def test_check_script_dry_run_sends_nothing(capsys, monkeypatch):
     out = capsys.readouterr().out
     assert out.count("Šalje se:") == len(QUESTIONS)
     assert "Poslovni Park Morava" not in out.split("Šalje se:", 1)[1]
+
+
+def test_question_prompt_hides_place_names_and_the_answer_restores_them(settings, tmp_path):
+    plan = {"clients": {"K1": {"konta": [
+        {"konto": "5331", "naziv": "Zakup lokala Topolska", "tg": 4, "pg": 4},
+        {"konto": "5334", "naziv": "Troškovi zakupa poslovnog prostora", "tg": 9, "pg": 9},
+        {"konto": "5339", "naziv": "Drugi troškovi zakupa", "tg": 0, "pg": 0},
+    ]}}}
+    path = tmp_path / "plan.json"
+    path.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+    llm = FakeLLM(question_answer=QuestionAnswer(odgovor="Ide na lokal [LOKACIJA_1].", preporuceni_konto="5331"))
+    client = TestClient(create_app(replace(settings, analytic_plan_path=path), llm=llm))
+    body = client.post("/ask", json={**QUESTION, "konto": "533", "analytic_konto": "5331",
+                                     "item_name": "Zakup lokala", "question": "Koji lokal je ovo?"}).json()
+    prompt = build_question_prompt(llm.question_requests[0])
+    assert "Topolska" not in prompt and "[LOKACIJA_1]" in prompt
+    assert body["answer"] == "Ide na lokal Topolska."
+    assert body["recommended_naziv"] == "Zakup lokala Topolska"

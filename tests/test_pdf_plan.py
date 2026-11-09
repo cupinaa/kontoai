@@ -28,7 +28,7 @@ PAGES = [
         row("5130", "2014 - Troškovi električne energije", tg="12", pg="11"),
         row("5133", "2014 - Troškovi goriva za vozila", tg="30", pg="31"),
         row("5139", "2014 - Drugi troškovi goriva i energije"),
-        row("53190", "2022 - Drugi troskovi transportnih usluga-PTT markice", tg="6", pg="7"),
+        row("53301", "2022 - Zakup skladista-ostalo", tg="6", pg="7"),
         row("5131", "2014 - Drugi troškovi pogonskog goriva (ugalj, nafta i njeni derivati,\ngas, itd)"),
         row("5132", "2014 - Stari konto grejanja", aktuelan="Ne", tg="3"),
         row("2410", "2014 - Tekući račun kod banke", tg="400"),  # bank: never imported
@@ -58,7 +58,7 @@ def test_only_current_accounts_of_relevant_classes_are_imported(imported):
     assert "2410" not in codes  # banks are never imported
     assert "5132" not in codes  # Aktuelan = Ne
     assert "513" not in codes and imported.parents["513"] == "Troškovi goriva i energije"
-    assert {"5130", "5133", "53190", "55505"} <= set(codes)
+    assert {"5130", "5133", "53301", "55505"} <= set(codes)
     assert imported.skipped["Aktuelan = Ne"] == 1
 
 
@@ -82,8 +82,8 @@ def test_usage_comes_from_tg_plus_pg(imported):
 
 def test_five_digit_analytics_belong_to_their_three_digit_account(imported):
     plan = AnalyticPlan({"K1": imported.accounts})
-    assert "53190" in [a.konto for a in plan.options("K1", "531")]
-    assert plan.get("K1", "53190").sintetika == "531"
+    assert "53301" in [a.konto for a in plan.options("K1", "533")]
+    assert plan.get("K1", "53301").sintetika == "533"
 
 
 def test_options_rank_by_usage_and_keep_unused_accounts_last(imported):
@@ -130,3 +130,50 @@ def test_import_script_refuses_to_write_inside_the_repo(tmp_path):
 
     assert main([str(tmp_path / "x.pdf"), "--client-id", "K1", "--out", str(ROOT / "data" / "plan.json")]) == 2
     assert main([str(ROOT / "x.pdf"), "--client-id", "K1", "--out", str(tmp_path / "plan.json")]) == 2
+
+
+# ---------------------------------------------------------------- places in account names (all invented)
+
+LOCATION_PLAN = [
+    AnalyticAccount(konto="5330", naziv="Troškovi zakupa poslovnog prostora", tg=5, pg=5),
+    AnalyticAccount(konto="5331", naziv="Zakup lokala Topolska", tg=4, pg=4),
+    AnalyticAccount(konto="5332", naziv="Zakup magacina-Zlatni Breg-120 m2", tg=3, pg=3),
+    AnalyticAccount(konto="5339", naziv="Drugi troškovi zakupa poslovnog prostora", tg=0, pg=0),
+]
+
+
+def test_place_names_are_masked_and_restored_locally():
+    from app.analytic import common_words, location_spans
+    from app.masking import Masker
+
+    common = common_words([a.naziv for a in LOCATION_PLAN], ["Troškovi zakupnina"])
+    masker = Masker()
+    assert mask_plan_name("Zakup lokala Topolska", masker, common) == "Zakup lokala [LOKACIJA_1]"
+    masked = mask_plan_name("Zakup magacina-Zlatni Breg-120 m2", masker, common)
+    assert masked == "Zakup magacina-[LOKACIJA_2]-[BROJ_1]"
+    assert masker.unmask(masked) == "Zakup magacina-Zlatni Breg-120 m2"
+    assert location_spans("Troškovi zakupa poslovnog prostora", common) == []  # ordinary words stay
+    assert location_spans("Gradj.zemljiste-Sv.Lipovac", common) == [(16, 26)]  # initial joined by a dot
+
+
+def test_llm_never_sees_place_names_but_the_accountant_does(chart, history, rules):
+    llm = FakeLLM(analytic="5331")
+    llm_answer = llm.choose_analytic
+
+    def answer_mentioning_the_place(request):
+        choice = llm_answer(request)
+        return choice.model_copy(update={"obrazlozenje": "Zakup lokala [LOKACIJA_1]."})
+
+    llm.choose_analytic = answer_mentioning_the_place
+    classifier = Classifier(chart=chart, history=history, rules=rules, llm=llm,
+                            analytic_plan=AnalyticPlan({"K1": LOCATION_PLAN}))
+    item = InvoiceItem(name="Zakup lokala za novembar", given_konto="533")
+    result = classifier.classify(ItemContext(client_id="K1", client_activity="trgovina", item=item))
+
+    sent = " ".join(o.naziv for o in llm.analytic_requests[0].options)
+    assert "Topolska" not in sent and "Zlatni Breg" not in sent and "120 m2" not in sent
+    assert "[LOKACIJA_1]" in sent
+    shown = {o.konto: o.naziv for o in result.analytic.options}
+    assert shown["5331"] == "Zakup lokala Topolska" and shown["5332"] == "Zakup magacina-Zlatni Breg-120 m2"
+    assert result.analytic.naziv == "Zakup lokala Topolska"
+    assert result.analytic.explanation == "Zakup lokala Topolska."

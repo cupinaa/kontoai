@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import json
 import re
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -91,11 +92,80 @@ class AnalyticPlan:
 
 
 _LONG_NUMBER = re.compile(r"\d[\d\-/]{4,}\d")
+_AREA = re.compile(r"\d+(?:[.,]\d+)?(?:/\d+)?\s*(?:m2|m²|ari|ara|ar|ha)\b", re.IGNORECASE)
+_WORD = re.compile(r"[A-Za-zČĆŠŽĐčćšžđ]+")
+_JOIN = re.compile(r"^(?: |\.|\. )$")  # what may separate two words of one place name ("Novi Sad", "St.Pazova")
+# Capitalised words in account names that are accounting vocabulary, not places.
+_GENERIC = {"ispr", "ispra", "isprav", "poresk", "uprav", "resen", "suda", "sud", "stari", "novi", "nova", "staro"}
 
 
-def mask_plan_name(naziv: str) -> str:
-    """Hide long numbers in an account name (tax payment accounts, cadastral numbers) before it goes to an LLM."""
-    return _LONG_NUMBER.sub("[BROJ]", naziv)
+def fold(word: str) -> str:
+    """Lower case, no diacritics, first five letters: a crude stem for comparing words."""
+    word = word.casefold().replace("đ", "dj")
+    return unicodedata.normalize("NFKD", word).encode("ascii", "ignore").decode()[:5]
+
+
+def common_words(names: list[str], generic_names: list[str] = ()) -> frozenset[str]:
+    """Stems of ordinary words: every word of `generic_names` (the chart of accounts) and words that
+    appear in lower case in at least two different names of the client's plan. Place names do not."""
+    seen: dict[str, set[int]] = {}
+    for i, name in enumerate(names):
+        for m in _WORD.finditer(name):
+            if m.group()[0].islower():
+                seen.setdefault(fold(m.group()), set()).add(i)
+    stems = {s for s, where in seen.items() if len(where) >= 2}
+    stems |= {fold(m.group()) for name in generic_names for m in _WORD.finditer(name)}
+    return frozenset(stems | {fold(w) for w in _GENERIC})
+
+
+def location_spans(naziv: str, common: frozenset[str] = frozenset()) -> list[tuple[int, int]]:
+    """Character spans of place, street and building names in an account name.
+
+    A candidate is a capitalised word (not all caps, not the first word) that is not an ordinary word;
+    neighbouring capitalised words and initials joined by a space or a dot belong to the same name.
+    """
+    words = list(_WORD.finditer(naziv))
+
+    def titled(m: re.Match) -> bool:
+        w = m.group()
+        return w[0].isupper() and (not w.isupper() or len(w) <= 2)
+
+    def candidate(i: int) -> bool:
+        w = words[i].group()
+        return i > 0 and titled(words[i]) and not w.isupper() and len(w) >= 3 and fold(w) not in common
+
+    spans: list[list[int]] = []
+    for i in range(len(words)):
+        if not candidate(i):
+            continue
+        lo = hi = i
+        while lo > 0 and titled(words[lo - 1]) and _JOIN.match(naziv[words[lo - 1].end():words[lo].start()]):
+            lo -= 1
+        while hi + 1 < len(words) and titled(words[hi + 1]) and _JOIN.match(naziv[words[hi].end():words[hi + 1].start()]):
+            hi += 1
+        start, end = words[lo].start(), words[hi].end()
+        if spans and start <= spans[-1][1]:
+            spans[-1][1] = max(spans[-1][1], end)
+        else:
+            spans.append([start, end])
+    return [(s, e) for s, e in spans]
+
+
+def mask_plan_name(naziv: str, masker=None, common: frozenset[str] = frozenset()) -> str:
+    """Hide what in an account name identifies the client before it goes to an LLM: long numbers (tax
+    payment accounts, cadastral numbers), areas, and place, street and building names.
+
+    With a `Masker`, every value gets a numbered placeholder ("[LOKACIJA_1]") that `masker.unmask`
+    turns back into the real text locally; without one, generic placeholders are used.
+    """
+    def placeholder(label: str, value: str) -> str:
+        return masker.placeholder(label, value) if masker is not None else f"[{label}]"
+
+    text = _AREA.sub(lambda m: placeholder("BROJ", m.group()), naziv)
+    text = _LONG_NUMBER.sub(lambda m: placeholder("BROJ", m.group()), text)
+    for start, end in reversed(location_spans(text, common)):
+        text = text[:start] + placeholder("LOKACIJA", text[start:end]) + text[end:]
+    return text
 
 
 # ----------------------------------------------------------------------------- import

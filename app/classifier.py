@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from app.analytic import AnalyticAccount, AnalyticPlan, mask_plan_name
+from app.analytic import AnalyticAccount, AnalyticPlan, common_words, mask_plan_name
 from app.chart import ChartOfAccounts
 from app.history import HistoryStore
 from app.llm.base import AnalyticRequest, LLMError, LLMProvider, LLMRequest, QuestionRequest
@@ -93,6 +93,7 @@ class Classifier:
         self.llm = llm
         self.review_threshold = review_threshold
         self.analytic_plan = analytic_plan or AnalyticPlan()
+        self._common_words: dict[str, frozenset[str]] = {}  # per client, for masking plan names
 
     # ------------------------------------------------------------------ synthetic account
 
@@ -189,6 +190,14 @@ class Classifier:
             )
         return self._ask_llm(ctx)
 
+    def _plan_name(self, ctx: ItemContext, masker: Masker, naziv: str) -> str:
+        """An account name of the client's plan as the LLM may see it: identifying numbers, areas and
+        place/street/building names become placeholders of `masker`, so answers are unmasked locally."""
+        if ctx.client_id not in self._common_words:
+            names = [a.naziv for a in self.analytic_plan.accounts(ctx.client_id)]
+            self._common_words[ctx.client_id] = common_words(names, [a.naziv for a in self.chart.accounts])
+        return mask_plan_name(masker.mask(naziv), masker, self._common_words[ctx.client_id])
+
     def _masker(self, ctx: ItemContext) -> Masker:
         item = ctx.item
         masker = Masker()
@@ -220,8 +229,8 @@ class Classifier:
             konto=konto,
             konto_naziv=(self.chart.name(konto) or "") if konto else "",
             analytic_konto=analytic.konto if analytic else None,
-            analytic_naziv=mask_plan_name(masker.mask(analytic.naziv)) if analytic else "",
-            options=[_option(o, mask_plan_name(masker.mask(o.naziv))) for o in options],
+            analytic_naziv=self._plan_name(ctx, masker, analytic.naziv) if analytic else "",
+            options=[_option(o, self._plan_name(ctx, masker, o.naziv)) for o in options],
             chart=[AnalyticOption(konto=a.konto, naziv=a.naziv) for a in self.chart.accounts],
         )
         answer = self.llm.answer_question(request)
@@ -341,7 +350,7 @@ class Classifier:
             konto_naziv=self.chart.name(konto) or "",
             # Account names of a real plan can hold the client's own details (addresses, tax account
             # numbers), so they are masked like the item text.
-            options=[_option(o, mask_plan_name(masker.mask(o.naziv))) for o in options],
+            options=[_option(o, self._plan_name(ctx, masker, o.naziv)) for o in options],
             chart=[AnalyticOption(konto=a.konto, naziv=a.naziv) for a in self.chart.accounts],
         )
         try:
