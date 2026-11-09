@@ -306,6 +306,20 @@ select.analytic:disabled { cursor: default; color: var(--text-2); }
 .reason-sub { margin-top: 8px; color: var(--text-2); }
 .panel .btn-primary { width: 100%; padding: 12px; }
 
+.ask { border-top: 1px solid var(--line); padding-top: 18px; }
+.ask .field-label { display: block; }
+.ask-form { display: flex; gap: 8px; }
+.ask-form input {
+  flex: 1; min-width: 0; font: inherit; font-size: 14px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 9px 12px; background: var(--surface); color: var(--text);
+}
+.ask-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.qa { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.qa p { margin: 0; font-size: 14px; }
+.qa-q { font-weight: 600; }
+.qa-a { color: var(--text); }
+.qa-error { color: var(--text-2); }
+
 /* ------------------------------------------------------------------ toast */
 
 .toast {

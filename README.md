@@ -63,10 +63,14 @@ The result is shown as a **green check** (matches Iris) or a **yellow dot** (dif
 | 3 | **Only one option** | No LLM call is needed. |
 | 4 | **LLM** | Chooses from the offered list. An answer outside the list is rejected. |
 
+Analytic accounts may have 4 or more digits (5130, 53190); the first three digits are the parent account. When the plan carries posting counts (this year + last year), candidates are ranked by them and the LLM sees a usage label next to each one (*"često (46 knjiženja)"*, *"nije korišćen"*). Accounts that were never used are kept, just ranked last.
+
 Something is **always preselected**, so the accountant only confirms or changes it:
 - An unsure suggestion is preselected but stays yellow and is not part of *Potvrdi sve usklađene*.
 - When no offered analytic fits, the closest one is preselected. The panel says *"Nijedna analitika ne odgovara dobro"* and offers a better 3-digit account if the model names one.
 - Without a usable LLM answer (no key, an error, or the call limit reached), the option whose name shares most words with the line is preselected and flagged.
+
+**Questions.** In the side panel the accountant can ask about the line (*Pitaj o ovoj stavci*). Each question is one LLM call and counts against the same server-wide call limit. The model gets only the masked line, the question, the suggested accounts, the candidates from the client's plan and the 3-digit chart, and answers in 2–4 sentences. A recommended account is accepted only if it exists in the client's plan, and off-topic questions are declined. Questions and answers live only in the open page; nothing is stored.
 
 Every confirmation is stored in the client's history (SQLite). The next invoice from the same supplier is mostly answered from history, without LLM calls.
 
@@ -156,6 +160,7 @@ docker run --rm -p 8000:8000 --env-file .env -v kontoai-data:/data kontoai
 pytest                                   # no network and no API key needed: Gemini is mocked
 python scripts/evaluate.py --dry-run     # plan an evaluation: calls needed, nothing sent
 python scripts/evaluate.py --max-calls 40
+python scripts/check_questions.py --dry-run   # the fixed question check: masked prompts, nothing sent
 ```
 
 GitHub Actions runs the tests and builds and smoke-tests the Docker image on every push.
@@ -166,6 +171,7 @@ GitHub Actions runs the tests and builds and smoke-tests the Docker image on eve
 |---|---|---|
 | POST | `/invoices/xml` | Upload a SEF XML (`file`, `client_activity`, optional `client_id`) and get suggestions |
 | POST | `/invoices` | The same with JSON lines; a line may carry `given_konto`, the account from the accounting software |
+| POST | `/ask` | The accountant's question about one line (one LLM call); the answer may recommend an account from the client's plan |
 | POST | `/confirm` | Confirm or correct a line (3-digit and analytic account); stored in the client's history |
 | GET | `/history/{client_id}` | Confirmed postings |
 | GET | `/analytic-plan/{client_id}` | The client's analytic accounts |
@@ -178,7 +184,7 @@ Interactive docs are at `/docs`.
 | Path | What it is |
 |---|---|
 | [`data/kontni_okvir.json`](data/kontni_okvir.json) | 25 three-digit accounts from the *Pravilnik o kontnom okviru* (Sl. glasnik RS 89/2020) that are relevant to incoming invoices. A demonstration subset that is **not verified**. |
-| [`data/analiticki_plan.json`](data/analiticki_plan.json) | **Trial** analytic plan for client `K001` (17 accounts), built from the accountant's review answers. It will be replaced by an export from the accounting software via [`scripts/import_analytic_plan.py`](scripts/import_analytic_plan.py), which takes CSV or XLSX with configurable columns. |
+| [`data/analiticki_plan.json`](data/analiticki_plan.json) | **Trial** analytic plan for the demo client `K001` (17 accounts), built from the accountant's review answers. A client's real plan is confidential and is **never** stored in this repository: [`scripts/import_pdf_plan.py`](scripts/import_pdf_plan.py) reads the accounting software's *Konta: Lista* PDF (only current accounts of classes 01, 02, 10, 13 and 5, with posting counts), refuses to write inside the repository, and the app loads the result from `KONTOAI_ANALYTIC_PLAN_PATH`. CSV/XLSX exports go through [`scripts/import_analytic_plan.py`](scripts/import_analytic_plan.py). |
 | [`data/samples/`](data/samples) | Invented SEF invoices. In invoices 06 and 07 the accounting-software account is carried in `cbc:AccountingCost` **for the demo only**. In practice Iris does not write it into the supplier's XML; the accounts would come from an Iris export and be sent as `given_konto`. |
 | [`data/eval/`](data/eval) | The synthetic evaluation dataset, the accountant's own example items, and the suggestions from the evaluation run. |
 | [`data/review/`](data/review) | The Excel files the accountant filled in, the decisions taken after her review, and the comparison report. [`scripts/review.py`](scripts/review.py) generates and imports them. |
@@ -203,6 +209,7 @@ The model can be swapped. The rest of the app only uses the `LLMProvider` interf
 - **Synthetic evaluation.** There is no accuracy number for the analytic step, and the 3-digit evaluation is too small and too close to the rules to say how the system performs on real invoices.
 - **One accounting policy.** Fixed-asset thresholds and expense-vs-stock decisions differ between clients. The system learns them only from confirmations, and a generic LLM tends to be overconfident about them.
 - **Simple history matching.** Text similarity is word overlap, so rewordings such as *"zakup kancelarije"* vs. *"zakup poslovnog prostora"* are not recognised as the same item.
+- **Questions answer from a narrow context.** The model sees the line and the plan candidates, not the client's postings, so it cannot know the client's own policy unless the accountant says it in the question.
 - **Pattern-based masking.** It covers the identifiers listed above but cannot recognise every personal name in free text.
 - **Out of scope:** VAT, the supplier account and the full posting entry.
 - **Prototype operations.** There is no authentication or multi-user access control, SQLite is the store, and lines are sent to the LLM one at a time.
@@ -210,7 +217,7 @@ The model can be swapped. The rest of the app only uses the `LLMProvider` interf
 
 ## Next steps
 
-1. Import the real analytic plan from the accounting software, and get a set of real, already-booked invoices to measure the analytic step on.
+1. Get a set of real, already-booked invoices to measure the analytic step against the client's real plan.
 2. Import the accounting software's 3-digit proposals through its export instead of the demo `AccountingCost` field.
 3. Per-client accounting policy (fixed-asset threshold, expense vs. stock) as explicit settings.
 4. Better item matching (embeddings), batching LLM calls per invoice, and the full posting entry including VAT.

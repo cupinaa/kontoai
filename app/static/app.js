@@ -459,7 +459,20 @@ function renderPanel() {
         </div>` : ""}
       ${a && a.explanation && options.length && a.source !== "none" && !s.previous_choice ? `<p class="reason reason-sub">${esc(a.explanation.replace(/^Nijedna analitika ne odgovara dobro\.\s*/, ""))}</p>` : ""}
     </div>` : ""}
-    <button class="btn-primary" id="panel-confirm" type="button"${row.confirmed ? " disabled" : ""}>${row.confirmed ? "Potvrđeno" : "Potvrdi"}</button>`;
+    <button class="btn-primary" id="panel-confirm" type="button"${row.confirmed ? " disabled" : ""}>${row.confirmed ? "Potvrđeno" : "Potvrdi"}</button>
+    <div class="ask">
+      <label class="field-label" for="ask-input">Pitaj o ovoj stavci</label>
+      <form class="ask-form" id="ask-form">
+        <input id="ask-input" type="text" maxlength="500" autocomplete="off" placeholder="Npr. da li ovo ide na struju ili gorivo?"${row.asking ? " disabled" : ""}>
+        <button class="btn-ghost btn-sm" type="submit"${row.asking ? " disabled" : ""}>${row.asking ? "Šaljem…" : "Pitaj"}</button>
+      </form>
+      ${(row.qa || []).map((qa, i) => `
+        <div class="qa">
+          <p class="qa-q">${esc(qa.q)}</p>
+          <p class="qa-a${qa.error ? " qa-error" : ""}">${esc(qa.a)}</p>
+          ${qa.rec && !row.confirmed ? `<button type="button" class="btn-ghost btn-sm qa-use" data-qa="${i}">Primeni ${esc(qa.rec)} ${esc(qa.recName || "")}</button>` : ""}
+        </div>`).join("")}
+    </div>`;
 
   const switchKonto = (konto) => {
     row.choice.konto = konto;
@@ -486,6 +499,50 @@ function renderPanel() {
     updateConfirmAll();
   });
   $("panel-confirm").addEventListener("click", () => confirmRow(index));
+
+  // Questions live only in this page (row.qa); nothing is stored on the server.
+  $("ask-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const question = $("ask-input").value.trim();
+    if (question.length < 3 || row.asking) return;
+    row.asking = true;
+    renderPanel();
+    const entry = { q: question };
+    try {
+      const res = await api("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: state.clientId,
+          client_activity: client().delatnost || "nepoznata delatnost",
+          item_name: row.item.name,
+          item_description: row.item.description || null,
+          supplier_name: row.item.supplier_name,
+          supplier_pib: row.item.supplier_pib,
+          konto: row.choice.konto || null,
+          analytic_konto: row.choice.analytic || null,
+          question,
+        }),
+      });
+      Object.assign(entry, { a: res.answer, rec: res.recommended_konto, recName: res.recommended_naziv });
+    } catch (err) {
+      Object.assign(entry, { a: err.message, error: true });
+    }
+    row.qa = [...(row.qa || []), entry];
+    row.asking = false;
+    if (state.selected === index) renderPanel();
+  });
+  $("panel-body").querySelectorAll(".qa-use").forEach((btn) => btn.addEventListener("click", () => {
+    const rec = row.qa[Number(btn.dataset.qa)].rec;
+    const konto = rec.slice(0, 3);
+    if (konto !== row.choice.konto && !state.accounts.has(konto)) { toast(`Konto ${konto} nije u kontnom okviru`); return; }
+    row.choice.konto = konto;
+    row.choice.analytic = rec;
+    row.analyticTouched = true;
+    renderRow(index);
+    updateConfirmAll();
+    renderPanel();
+  }));
 }
 
 /* ------------------------------------------------------------------ start */
